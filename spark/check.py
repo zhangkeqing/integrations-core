@@ -606,6 +606,9 @@ class SparkCheck(AgentCheck):
                 tags=['url:%s' % self._get_url_base(address)],
                 message='JSON Parse failed: {0}'.format(e))
             raise
+        except HTTPError as e:
+            self.log.debug('Error: (%s) failed querying: %s', e, e.request.url)
+            raise
 
         return response_json
 

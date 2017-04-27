@@ -34,6 +34,38 @@ c,i-3,0,0,0,1,,1,1,0,,0,,0,0,0,0,NO CHECK,1,1,0,0,1,1,30,,1,3,1,,70,,2,0,,1,1,,0
 c,BACKEND,0,0,1,2,0,421,1,0,0,0,,0,0,0,0,UP,6,6,0,,0,1,0,,1,3,0,,421,,1,0,,1,,,,,,,,,,,,,,0,0,
 """
 
+MOCK_DATA_2 = """# pxname,svname,qcur,qmax,scur,smax,slim,stot,bin,bout,dreq,dresp,ereq,econ,eresp,wretr,wredis,status,weight,act,bck,chkfail,chkdown,lastchg,downtime,qlimit,pid,iid,sid,throttle,lbtot,tracked,type,rate,rate_lim,rate_max,check_status,check_code,check_duration,hrsp_1xx,hrsp_2xx,hrsp_3xx,hrsp_4xx,hrsp_5xx,hrsp_other,hanafail,req_rate,req_rate_max,req_tot,cli_abrt,srv_abrt,comp_in,comp_out,comp_byp,comp_rsp,lastsess,last_chk,last_agt,qtime,ctime,rtime,ttime,agent_status,agent_code,agent_duration,check_desc,agent_desc,check_rise,check_fall,check_health,agent_rise,agent_fall,agent_health,addr,cookie,mode,algo,conn_rate,conn_rate_max,conn_tot,intercepted,dcon,dses,
+stats,FRONTEND,,,1,4,2000,70959,21126224,562247026,0,0,0,,,,,OPEN,,,,,,,,,1,1,0,,,,0,1,0,4,,,,0,70957,1,0,0,0,,1,3,70959,,,0,0,0,0,,,,,,,,,,,,,,,,,,,,,http,,1,4,70959,70959,0,0,
+stats,BACKEND,0,0,0,0,200,0,21126224,562247026,0,0,,0,0,0,0,UP,0,0,0,,0,1350229,,,1,1,0,,0,,1,0,,0,,,,0,0,0,0,0,0,,,,0,0,0,0,0,0,0,0,,,0,0,0,0,,,,,,,,,,,,,,http,,,,,,,,
+lexcorp,gc-web-live-a19b,0,0,0,101,,2743690,11982154362,55181827051,,0,,0,430,6,0,UP,100,1,0,68,8,138761,868,,1,2,1,,2743684,,2,0,,84,L7OK,200,6,1448,2643369,54783,38180,5832,0,0,,,,726,359,,,,,2,HTTP status check returned code <200>,"agent warns : Backend is using a static LB algorithm and only accepts weights '0%' and '100%'.
+",0,0,423,657,CHECKED,,1,Layer7 check passed,No status change,2,3,4,1,1,1,,,http,,,,,,,,
+lexcorp,gc-web-live-gvbv,0,0,4,107,,3861585,14308710973,74521653047,,0,,0,444,8,0,UP,100,1,0,89,11,138915,1128,,1,2,2,,3861577,,2,2,,87,L7OK,200,4,1747,3739849,73523,40150,6209,0,0,,,,871,348,,,,,0,HTTP status check returned code <200>,"agent warns : Backend is using a static LB algorithm and only accepts weights '0%' and '100%'.
+",0,0,55,155,CHECKED,,0,Layer7 check passed,No status change,2,3,4,1,1,1,,,http,,,,,,,,
+lexcorp,gc-web-live-z5b9,0,0,0,120,,3078252,11421437866,49586684204,,0,,0,505,6,0,UP,100,1,0,57,9,138457,1428,,1,2,3,,3078246,,2,0,,77,L7OK,200,4,1619,2963216,64386,43450,5478,0,0,,,,649,408,,,,,2,HTTP status check returned code <200>,"agent warns : Backend is using a static LB algorithm and only accepts weights '0%' and '100%'.
+",0,0,132,166,CHECKED,,0,Layer7 check passed,No status change,2,3,4,1,1,1,,,http,,,,,,,,
+lexcorp,BACKEND,0,0,4,125,200,9683507,37712303201,179290164302,0,0,,0,1379,20,0,UP,300,3,0,,0,1350229,0,,1,2,0,,9683507,,1,2,,96,,,,4810,9346434,192692,121780,17783,4,,,,9683503,2246,1115,0,0,0,0,0,,,0,0,225,381,,,,,,,,,,,,,,http,,,,,,,,
+lexcorpscheduler,gc-scheduler-web-live-5x7b,0,0,0,2,,5169,13699188,9387327,,0,,0,0,0,0,UP,100,1,0,439,21,138102,1051,,1,3,1,,5169,,2,0,,3,L7OK,200,15,0,5160,0,9,0,0,0,,,,0,0,,,,,84438,HTTP status check returned code <200>,,0,0,28,28,CHECKED,,0,Layer7 check passed,No status change,2,3,4,1,1,1,,,http,,,,,,,,
+lexcorpscheduler,gc-scheduler-web-live-7hla,0,0,0,2,,5173,13714694,8613749,,0,,0,0,0,0,UP,100,1,0,479,15,138299,974,,1,3,2,,5173,,2,0,,3,L7OK,200,20,0,5162,0,11,0,0,0,,,,0,0,,,,,84436,HTTP status check returned code <200>,,0,0,49,49,CHECKED,,7,Layer7 check passed,No status change,2,3,4,1,1,1,,,http,,,,,,,,
+lexcorpscheduler,BACKEND,0,0,0,4,200,10342,27413882,18001076,0,0,,0,0,0,0,UP,200,2,0,,1,151702,6,,1,3,0,,10342,,1,0,,5,,,,0,10322,0,20,0,0,,,,10342,0,0,0,0,0,0,84436,,,0,0,34,34,,,,,,,,,,,,,,http,,,,,,,,
+lexcorppublisher,gc-publisher-web-live-p05r,0,0,0,19,,74902,31741301,9662017532,,0,,0,0,0,0,UP,100,1,0,69,9,139204,611,,1,4,1,,74902,,2,0,,17,L7OK,200,6,0,69241,3176,1055,1430,0,0,,,,9,0,,,,,313,HTTP status check returned code <200>,,0,0,2296,2333,CHECKED,,0,Layer7 check passed,No status change,2,3,4,1,1,1,,,http,,,,,,,,
+lexcorppublisher,gc-publisher-web-live-4z3f,0,0,0,20,,78806,33411763,10292079109,,0,,0,0,0,0,UP,96,1,0,47,8,139351,594,,1,4,2,,78806,,2,0,,16,L7OK,200,5,0,72864,3292,1192,1458,0,0,,,,8,0,,,,,313,HTTP status check returned code <200>,,0,0,737,745,CHECKED,,0,Layer7 check passed,No status change,2,3,4,1,1,1,,,http,,,,,,,,
+lexcorppublisher,gc-publisher-web-live-61h2,0,0,0,12,,79374,33692433,10320053962,,0,,0,0,0,0,UP,99,1,0,47,8,137789,604,,1,4,3,,79374,,2,0,,17,L7OK,200,4,0,73020,3491,1220,1643,0,0,,,,5,0,,,,,27,HTTP status check returned code <200>,,0,0,784,792,CHECKED,,0,Layer7 check passed,No status change,2,3,4,1,1,1,,,http,,,,,,,,
+lexcorppublisher,BACKEND,0,0,0,30,200,233082,98845497,30274150603,0,0,,0,0,0,0,UP,295,3,0,,0,1350229,0,,1,4,0,,233082,,1,0,,50,,,,0,215125,9959,3467,4531,0,,,,233082,22,0,0,0,0,0,27,,,0,0,1424,1443,,,,,,,,,,,,,,http,,,,,,,,
+lexcorpstatic,gc-web-live-a19b,0,0,0,9,,289662,191623353,16176598861,,0,,0,0,0,2,UP,76,1,0,78,8,138761,865,,1,5,1,,289662,,2,0,,16,L7OK,200,4,0,216013,6702,66380,565,0,0,,,,11,0,,,,,5,HTTP status check returned code <200>,,0,0,16,18,CHECKED,,1,Layer7 check passed,No status change,2,3,4,1,1,1,,,http,,,,,,,,
+lexcorpstatic,gc-web-live-gvbv,0,0,0,10,,266780,176238604,14985496143,,0,,0,0,0,0,UP,97,1,0,85,12,138915,1141,,1,5,2,,266780,,2,0,,14,L7OK,200,10,0,197049,6279,63129,323,0,0,,,,18,0,,,,,4,HTTP status check returned code <200>,,0,0,12,14,CHECKED,,0,Layer7 check passed,No status change,2,3,4,1,1,1,,,http,,,,,,,,
+lexcorpstatic,gc-web-live-z5b9,0,0,0,11,,288180,190539746,15981693605,,0,,0,1,0,0,UP,98,1,0,61,9,138457,1429,,1,5,3,,288180,,2,1,,17,L7OK,200,8,0,214572,6747,66488,372,0,0,,,,11,0,,,,,1,HTTP status check returned code <200>,,0,0,10,12,CHECKED,,0,Layer7 check passed,No status change,2,3,4,1,1,1,,,http,,,,,,,,
+lexcorpstatic,BACKEND,0,0,0,16,200,844620,558401703,47143788609,0,0,,0,1,0,2,UP,271,3,0,,0,1350229,0,,1,5,0,,844622,,1,1,,36,,,,0,627634,19728,195997,1261,0,,,,844620,40,0,0,0,0,0,1,,,0,0,14,15,,,,,,,,,,,,,,http,,,,,,,,
+websitemanager,gc-certmgr-live-1,0,0,0,3,,75646,36425153,44718523,,0,,0,1,0,3,UP,100,1,0,80,15,67221,1215,,1,6,1,,75646,,2,0,,9,L7OK,200,59,0,75466,152,20,4,0,0,,,,0,0,,,,,2,HTTP check did not match unwanted content,,0,0,39,40,,,,Layer7 check passed,,2,3,4,,,,,,http,,,,,,,,
+websitemanager,gc-certmgr-live-2,0,0,0,5,,75770,36486003,49347964,,0,,0,0,0,1,UP,100,1,0,57,12,67220,674,,1,6,2,,75770,,2,1,,14,L7OK,200,67,0,75597,153,16,3,0,0,,,,4,0,,,,,1,HTTP check did not match unwanted content,,0,0,51,52,,,,Layer7 check passed,,2,3,4,,,,,,http,,,,,,,,
+websitemanager,gc-certmgr-live-3,0,0,0,6,,75719,36336359,47971418,,0,,0,1,0,11,UP,100,1,0,50,12,67221,739,,1,6,3,,75719,,2,1,,9,L7OK,200,37,0,75560,126,15,6,0,0,,,,0,0,,,,,1,HTTP check did not match unwanted content,,0,0,46,47,,,,Layer7 check passed,,2,3,4,,,,,,http,,,,,,,,
+websitemanager,BACKEND,0,0,0,9,200,227177,109274642,142049761,0,0,,57,2,0,15,UP,300,3,0,,3,67221,405,,1,6,0,,227135,,1,0,,27,,,,0,226623,431,51,72,0,,,,227177,4,0,0,0,0,0,1,,,0,0,46,46,,,,,,,,,,,,,,http,,,,,,,,
+lexcorp,FRONTEND,,,4,125,2000,9683858,37712306031,179290228535,0,0,351,,,,,OPEN,,,,,,,,,1,7,0,,,,0,2,0,96,,,,4810,9346434,192692,122131,17783,4,,2,96,9683858,,,0,0,0,0,,,,,,,,,,,,,,,,,,,,,http,,2,96,9683858,0,0,0,
+lexcorpscheduler,FRONTEND,,,0,4,2000,10342,27413882,18001076,0,0,0,,,,,OPEN,,,,,,,,,1,8,0,,,,0,0,0,5,,,,0,10322,0,20,0,0,,0,5,10342,,,0,0,0,0,,,,,,,,,,,,,,,,,,,,,http,,0,5,10342,0,0,0,
+lexcorppublisher,FRONTEND,,,0,30,2000,233082,98845497,30274150603,0,0,0,,,,,OPEN,,,,,,,,,1,9,0,,,,0,0,0,50,,,,0,215125,9959,3467,4531,0,,0,50,233082,,,0,0,0,0,,,,,,,,,,,,,,,,,,,,,http,,0,50,233082,0,0,0,
+lexcorpstatic,FRONTEND,,,0,16,2000,844620,558401703,47143788609,0,0,0,,,,,OPEN,,,,,,,,,1,10,0,,,,0,1,0,36,,,,0,627634,19728,195997,1261,0,,1,36,844620,,,0,0,0,0,,,,,,,,,,,,,,,,,,,,,http,,1,36,844620,0,0,0,
+websitemanager,FRONTEND,,,0,9,2000,227177,109274642,142049761,0,0,0,,,,,OPEN,,,,,,,,,1,11,0,,,,0,0,0,27,,,,0,226623,431,51,72,0,,0,27,227177,,,0,0,0,0,,,,,,,,,,,,,,,,,,,,,http,,0,27,227177,0,0,0,
+"""
+
 AGG_STATUSES_BY_SERVICE = (
     (['status:available', 'service:a'], 1),
     (['status:available', 'service:b'], 4),
@@ -121,6 +153,25 @@ class TestCheckHAProxy(AgentCheckTest):
 
     @mock.patch('requests.get', return_value=mock.Mock(content=MOCK_DATA))
     def test_count_per_status_by_service_and_collate_per_host(self, mock_requests):
+        config = copy.deepcopy(self.BASE_CONFIG)
+        config['instances'][0]['collect_status_metrics_by_host'] = True
+        config['instances'][0]['collate_status_tags_per_host'] = True
+        self.run_check(config)
+
+        self.assertMetric('haproxy.count_per_status', value=1, tags=['backend:FRONTEND', 'status:available', 'service:a'])
+        self.assertMetric('haproxy.count_per_status', value=1, tags=['backend:FRONTEND', 'status:available', 'service:b'])
+        for backend in ['i-1', 'i-2', 'i-3']:
+            self.assertMetric('haproxy.count_per_status', value=1, tags=['backend:%s' % backend, 'status:available', 'service:b'])
+        self.assertMetric('haproxy.count_per_status', value=1, tags=['backend:i-4', 'status:unavailable', 'service:b'])
+        self.assertMetric('haproxy.count_per_status', value=1, tags=['backend:i-5', 'status:unavailable', 'service:b'])
+        self.assertMetric('haproxy.count_per_status', value=1, tags=['backend:i-1', 'status:available', 'service:c'])
+        self.assertMetric('haproxy.count_per_status', value=1, tags=['backend:i-2', 'status:unavailable', 'service:c'])
+        self.assertMetric('haproxy.count_per_status', value=1, tags=['backend:i-3', 'status:unavailable', 'service:c'])
+
+        self._assert_agg_statuses(collate_status_tags_per_host=True)
+
+    @mock.patch('requests.get', return_value=mock.Mock(content=MOCK_DATA_2))
+    def test_count_per_status_by_service_and_collate_per_host_large(self, mock_requests):
         config = copy.deepcopy(self.BASE_CONFIG)
         config['instances'][0]['collect_status_metrics_by_host'] = True
         config['instances'][0]['collate_status_tags_per_host'] = True

@@ -515,11 +515,12 @@ class HAProxy(AgentCheck):
                                           services_excl_filter):
             return
 
+        data_status = data.get('status')
         if status is None:
-            self.host_status[url][key] = data['status']
+            self.host_status[url][key] = data_status
             return
 
-        if status != data['status'] and data['status'] in ('up', 'down'):
+        if status != data_status and data_status in ('up', 'down'):
             # If the status of a host has changed, we trigger an event
             try:
                 lastchg = int(data['lastchg'])
@@ -528,13 +529,13 @@ class HAProxy(AgentCheck):
 
             # Create the event object
             ev = self._create_event(
-                data['status'], hostname, lastchg, service_name,
+                data_status, hostname, lastchg, service_name,
                 data['back_or_front'], custom_tags=custom_tags
             )
             self.event(ev)
 
             # Store this host status so we can check against it later
-            self.host_status[url][key] = data['status']
+            self.host_status[url][key] = data_status
 
     def _create_event(self, status, hostname, lastchg, service_name, back_or_front,
                       custom_tags=[]):
@@ -570,7 +571,7 @@ class HAProxy(AgentCheck):
             Statuses are defined in `STATUS_TO_SERVICE_CHECK` mapping.
         '''
         service_name = data['pxname']
-        status = data['status']
+        status = data.get('status', 'no_check')
         haproxy_hostname = self.hostname.decode('utf-8')
         check_hostname = haproxy_hostname if tag_by_host else ''
 

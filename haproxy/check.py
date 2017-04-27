@@ -9,6 +9,8 @@ import re
 import socket
 import time
 import urlparse
+import csv
+import StringIO
 
 # 3rd party
 import requests
@@ -202,18 +204,13 @@ class HAProxy(AgentCheck):
         # The line looks like:
         # "# pxname,svname,qcur,qmax,scur,smax,slim,stot,bin,bout,dreq,dresp,ereq,econ,eresp,wretr,wredis,status,weight,act,bck,chkfail,chkdown,lastchg,downtime,qlimit,pid,iid,sid,throttle,lbtot,tracked,type,rate,rate_lim,rate_max,"
         fields = [f.strip() for f in data[0][2:].split(',') if f]
+        ha_stats = self._extract_stats_dict(data[1:], fields)
 
         self.hosts_statuses = defaultdict(int)
-
         back_or_front = None
 
         # Skip the first line, go backwards to set back_or_front
-        for line in data[:0:-1]:
-            if not line.strip():
-                continue
-
-            # Store each line's values in a dictionary
-            data_dict = self._line_to_dict(fields, line)
+        for _, data_dict in ha_stats.iteritems():
 
             if self._is_aggregate(data_dict):
                 back_or_front = data_dict['svname']
@@ -373,6 +370,17 @@ class HAProxy(AgentCheck):
                 return normalized_status
         return formatted_status
 
+    @staticmethod
+    def _extract_stats_dict(data, fields):
+        ha_stats = {}
+        csvdata = StringIO.StringIO('\n'.join(data[:0:-1]))
+        reader = csv.DictReader(csvdata, fields)
+        for row in reader:
+            ha_stats[(row['pxname'], row['svname'])] = row
+
+        return ha_stats
+
+
     def _process_backend_hosts_metric(self, hosts_statuses, services_incl_filter=None,
                                       services_excl_filter=None, custom_tags=[]):
         agg_statuses = defaultdict(lambda: {status: 0 for status in Services.COLLATED_STATUSES})
@@ -515,12 +523,11 @@ class HAProxy(AgentCheck):
                                           services_excl_filter):
             return
 
-        data_status = data.get('status')
         if status is None:
-            self.host_status[url][key] = data_status
+            self.host_status[url][key] = data['status']
             return
 
-        if status != data_status and data_status in ('up', 'down'):
+        if status != data['status'] and data['status'] in ('up', 'down'):
             # If the status of a host has changed, we trigger an event
             try:
                 lastchg = int(data['lastchg'])
@@ -529,13 +536,13 @@ class HAProxy(AgentCheck):
 
             # Create the event object
             ev = self._create_event(
-                data_status, hostname, lastchg, service_name,
+                data['status'], hostname, lastchg, service_name,
                 data['back_or_front'], custom_tags=custom_tags
             )
             self.event(ev)
 
             # Store this host status so we can check against it later
-            self.host_status[url][key] = data_status
+            self.host_status[url][key] = data['status']
 
     def _create_event(self, status, hostname, lastchg, service_name, back_or_front,
                       custom_tags=[]):
@@ -571,7 +578,7 @@ class HAProxy(AgentCheck):
             Statuses are defined in `STATUS_TO_SERVICE_CHECK` mapping.
         '''
         service_name = data['pxname']
-        status = data.get('status', 'no_check')
+        status = data['status']
         haproxy_hostname = self.hostname.decode('utf-8')
         check_hostname = haproxy_hostname if tag_by_host else ''
 

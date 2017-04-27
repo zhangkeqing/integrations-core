@@ -380,7 +380,9 @@ class HAProxy(AgentCheck):
 
         for _, stats in ha_stats.iteritems():
             for key, val in stats.iteritems():
-                if val:
+                if key == 'status':
+                    stats[key] = self._normalize_status(data_dict['status'])
+                elif val:
                     try:
                         # Try converting to a long, if failure, just leave it
                         stats[key] = float(val)

@@ -378,6 +378,15 @@ class HAProxy(AgentCheck):
         for row in reader:
             ha_stats[(row['pxname'], row['svname'])] = row
 
+        for _, stats in ha_stats:
+            for key, val in stats:
+                if val:
+                    try:
+                        # Try converting to a long, if failure, just leave it
+                        stats[key] = float(val)
+                    except Exception:
+                        pass
+
         return ha_stats
 
 

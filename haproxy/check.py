@@ -210,7 +210,8 @@ class HAProxy(AgentCheck):
         back_or_front = None
 
         # Skip the first line, go backwards to set back_or_front
-        for _, data_dict in ha_stats.iteritems():
+        for key in sorted(ha_stats):
+            data_dict = ha_stats[key]
 
             if self._is_aggregate(data_dict):
                 back_or_front = data_dict['svname']
@@ -373,15 +374,18 @@ class HAProxy(AgentCheck):
     @staticmethod
     def _extract_stats_dict(data, fields):
         ha_stats = {}
+        order = 0
+
         csvdata = StringIO.StringIO('\n'.join(data[:0:-1]))
         reader = csv.DictReader(csvdata, fields)
         for row in reader:
-            ha_stats[(row['pxname'], row['svname'])] = row
+            ha_stats[order] = row
+            order += 1
 
         for _, stats in ha_stats.iteritems():
             for key, val in stats.iteritems():
                 if key == 'status':
-                    stats[key] = self._normalize_status(data_dict['status'])
+                    stats[key] = HAProxy._normalize_status(val)
                 elif val:
                     try:
                         # Try converting to a long, if failure, just leave it

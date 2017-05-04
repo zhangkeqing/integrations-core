@@ -299,25 +299,29 @@ class SparkCheck(AgentCheck):
 
                 # Parse through the HTML to grab the application driver's link
                 try:
+                    self.log.debug("getting app url from " % spark_master_address)
                     app_url = self._get_standalone_app_url(app_id, spark_master_address)
-
+                    self.log.debug("got app url %s" % app_url)
                     if app_id and app_name and app_url:
                         if pre_20_mode:
                             self.log.debug('Getting application list in pre-20 mode')
                             applist = self._rest_request_to_json(app_url,
                                 SPARK_APPS_PATH,
                                 SPARK_STANDALONE_SERVICE_CHECK)
+                            self.log.debug('app list: %s' % str(applist))
                             for appl in applist:
                                 aid = appl.get('id')
                                 aname = appl.get('name')
                                 running_apps[aid] = (aname, app_url)
                         else:
                             running_apps[app_id] = (app_name, app_url)
-                except:
+                except Exception as e:
                     # it's possible for the requests to fail if the job
                     # completed since we got the list of apps.  Just continue
+                    self.log.error("Exception %s" % str(e))
                     pass
-
+        else:
+            self.log.debug("reported no running apps %s" % str(metrics_json))
         # Report success after gathering metrics from Spark master
         self.service_check(SPARK_STANDALONE_SERVICE_CHECK,
             AgentCheck.OK,

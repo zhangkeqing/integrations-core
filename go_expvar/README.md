@@ -8,7 +8,7 @@ If you prefer to instrument your Go code using only [dogstats-go](https://github
 
 # Installation
 
-The Go Expvar check is packaged with the Agent, so simply [install the Agent](https://app.datadoghq.com/account/settings#agent) anywhere you run Go services whose metrics you want to collect.
+The Go Expvar check is packaged with the Agent, so simply [install the Agent](https://app.datadoghq.com/account/settings#agent) either locally with each instance of your Go service or on any remote host that has connectivity to its HTTP ports.
 
 # Configuration
 
@@ -26,17 +26,18 @@ Create a file `go_expvar.yaml` in the Agent's `conf.d` directory:
 init_config:
 
 instances:
-  - expvar_url: http://localhost:<your_apps_port>/debug/vars
-    # optionally change the top-level namespace for metrics, e.g. my_go_app.memstats.alloc
-    namespace: my_go_app # defaults to go_expvar, e.g. go_expvar.memstats.alloc
+  - expvar_url: http://localhost:<service1_port>/debug/vars
+    # optionally change the top-level namespace for metrics, e.g. my_go_service.memstats.alloc
+    namespace: my_go_service # defaults to go_expvar, e.g. go_expvar.memstats.alloc
     # optionally define the metrics to collect, e.g. a counter var your service exposes with expvar.NewInt("my_func_counter")
     metrics:
       - path: my_func_counter
-        # if you don't want it named my_go_app.my_func_counter
-        #alias: my_go_app.preferred_counter_name
+        # if you don't want it named my_go_service.my_func_counter
+        #alias: my_go_service.preferred_counter_name
         type: counter # other valid options: rate, gauge
         #tags:
         #  - "tag_name1:tag_value1"
+  # - expvar_url: http://localhost:<service2_port>/debug/vars
 ```
 
 If you don't configure a `metrics` list, the Agent will still collect memstat metrics. Use `metrics` to tell the Agent which expvar vars to collect.

@@ -32,7 +32,7 @@ class NtpCheck(AgentCheck):
             ntp_stats = ntplib.NTPClient().request(**req_args)
         except ntplib.NTPException:
             self.log.debug("Could not connect to NTP Server {0}".format(
-                req_args['host']))
+                req_args['host']), exc_info=True)
             status = AgentCheck.UNKNOWN
             ntp_ts = None
         else:

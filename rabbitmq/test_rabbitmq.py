@@ -27,6 +27,18 @@ CONFIG = {
     ]
 }
 
+CONFIG_MONITORING = {
+    'init_config': {},
+    'instances': [
+        {
+            'rabbitmq_api_url': 'http://localhost:15672/api/',
+            'rabbitmq_user': 'datadog',
+            'rabbitmq_pass': 'madsecret',
+            'queues': ['test1'],
+        }
+    ]
+}
+
 CONFIG_REGEX = {
     'init_config': {},
     'instances': [
@@ -79,6 +91,27 @@ class RabbitMQCheckTest(AgentCheckTest):
 
     def test_check(self):
         self.run_check(CONFIG)
+
+        # Node attributes
+        for mname in COMMON_METRICS:
+            self.assertMetricTagPrefix(mname, 'rabbitmq_node', count=1)
+
+        self.assertMetric('rabbitmq.node.partitions', value=0, count=1)
+
+        # Queue attributes, should be only one queue fetched
+        # TODO: create a 'fake consumer' and get missing metrics
+        # active_consumers, acks, delivers, redelivers
+        for mname in Q_METRICS:
+            self.assertMetricTag('rabbitmq.queue.%s' %
+                                 mname, 'rabbitmq_queue:test1', count=1)
+
+        self.assertServiceCheckOK('rabbitmq.aliveness', tags=['vhost:/'])
+        self.assertServiceCheckOK('rabbitmq.status')
+
+        self.coverage_report()
+
+    def test_check_monitoring(self):
+        self.run_check(CONFIG_MONITORING)
 
         # Node attributes
         for mname in COMMON_METRICS:

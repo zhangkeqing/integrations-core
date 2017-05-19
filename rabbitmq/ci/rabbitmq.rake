@@ -45,8 +45,8 @@ namespace :ci do
       end
 
       # Adding monitoring user
-      sh %(curl -i -u guest:guest -H "content-type:application/json" -XPUT \
-           -d "{\"password\":\"madsecret\",\"tags\":\"monitoring\"}" http://localhost:15672/api/users/datadog)
+      json_req = "{\\\"password\\\":\\\"madsecret\\\",\\\"tags\\\":\\\"monitoring,policymaker\\\"}"
+      sh %(curl -i -u guest:guest -H "content-type:application/json" -XPUT -d"#{json_req}" http://localhost:15672/api/users/datadog)
 
       %w(test1 test5 tralala).each do |q|
         sh %(curl localhost:15672/cli/rabbitmqadmin | python - declare queue name=#{q})

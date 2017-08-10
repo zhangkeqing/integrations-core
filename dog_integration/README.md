@@ -4,7 +4,7 @@
 
 Look at this doge!
 
-![asdf](https://raw.githubusercontent.com/DataDog/integrations-core/reid/test-configureless-integration-images/dog_integration/dog_integration.png)
+![asdf](https://raw.githubusercontent.com/DataDog/integrations-core/reid/test-configureless-integration-images/dog_integration/images/dog_integration.png)
 
 ## Installation
 

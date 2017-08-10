@@ -1,4 +1,7 @@
 {
   "name": "dog_integration",
-  "short_description": "doge doge doge doge doge doge doge doge doge"
+  "short_description": "doge doge doge doge doge doge doge doge doge",
+  "metric_prefix": "doge",
+  "metric_to_check": "doge.wow",
+  "creates_events": false
 }

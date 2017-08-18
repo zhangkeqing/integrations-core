@@ -6,13 +6,14 @@ Look at this doge!
 
 ![asdf](https://raw.githubusercontent.com/DataDog/integrations-core/reid/test-configureless-integration-images/dog_integration/images/dog_integration.png)
 
-## Installation
+## Setup
+### Installation
 
 1. get a doge
 1. feed the doge
 1. profit
 
-## Configuration
+### Configuration
 
 Several doge configurations are available
 

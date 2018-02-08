@@ -4,10 +4,12 @@
 
 try:
     # Agent5 compatibility layer
-    from checks import AgentCheck
+    from checks import AgentCheck, PrometheusCheck
 except ImportError:
     from .base import AgentCheck
+    from .prometheus_check import PrometheusCheck
 
 __all__ = [
     'AgentCheck',
+    'PrometheusCheck'
 ]

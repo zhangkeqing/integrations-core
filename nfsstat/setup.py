@@ -28,9 +28,11 @@ def parse_req_line(line):
 
     return line
 
+
 # Get the long description from the README file
 with open(path.join(here, 'README.md'), encoding='utf-8') as f:
     long_description = f.read()
+
 
 # Parse requirements
 runtime_reqs = ['datadog-checks-base']
@@ -44,6 +46,7 @@ def read(*parts):
     with open(path.join(here, *parts), 'r') as fp:
         return fp.read()
 
+
 def find_version(*file_paths):
     version_file = read(*file_paths)
     version_match = re.search(r"^__version__ = ['\"]([^'\"]*)['\"]",
@@ -51,6 +54,7 @@ def find_version(*file_paths):
     if version_match:
         return version_match.group(1)
     raise RuntimeError("Unable to find version string.")
+
 
 # https://packaging.python.org/guides/single-sourcing-package-version/
 version = find_version("datadog_checks", "nfsstat", "__init__.py")
@@ -60,8 +64,10 @@ with open(path.join(here, 'manifest.json'), encoding='utf-8') as f:
     manifest = json.load(f)
     manifest_version = manifest.get('version')
 
+
 if version != manifest_version:
     raise Exception("Inconsistent versioning in module and manifest - aborting wheel build")
+
 
 setup(
     name='datadog-nfsstat',

@@ -7,10 +7,10 @@ import requests
 try:
     # Agent5 compatibility layer
     from datadog_checks.errors import CheckException
-    from datadog_checks.checks.prometheus import PrometheusCheck
+    from datadog_checks.checks.prometheus import Scraper, PrometheusCheck
 except ImportError:
     from checks import CheckException
-    from checks.prometheus_check import PrometheusCheck
+    from checks.prometheus_check import Scraper, PrometheusCheck
 
 from config import _is_affirmative
 from util import headers
@@ -23,46 +23,118 @@ class GitlabCheck(PrometheusCheck):
     DEFAULT_CONNECT_TIMEOUT = 5
     DEFAULT_RECEIVE_TIMEOUT = 15
 
-    PROMETHEUS_SERVICE_CHECK_NAME = 'gitlab.prometheus_endpoint_up'
+    PROMETHEUS_CONFIG = {
+        'core': {
+            'namespace': 'gitlab.core',
+            'service_check_name': 'gitlab.prometheus_core_endpoint_up',
+            'allowed_metrics': [],
+            'ignore_unmapped': False
+        },
+        'internal': {
+            'namespace': 'gitlab.internal',
+            'service_check_name': 'gitlab.prometheus_internal_endpoint_up',
+            'allowed_metrics': [
+                'gitlab_find_commit_real_duration_seconds_count',
+                'gitlab_rails_queue_duration_seconds_count',
+                'gitlab_sql_duration_seconds_count',
+                'gitlab_transaction_duration_seconds_count',
+                'http_requests_total',
+                'job_queue_duration_seconds_count',
+                'pipelines_created_total',
+                'unicorn_queued_connections'
+            ],
+            'ignore_unmapped': True
+        },
+        'database': {
+            'namespace': 'gitlab.database',
+            'service_check_name': 'gitlab.prometheus_database_endpoint_up',
+            'allowed_metrics': [
+                'ci_created_builds',
+                'ci_running_builds',
+                'gitlab_database_rows'
+            ],
+            'ignore_unmapped': True
+        },
+        'sidekiq': {
+            'namespace': 'gitlab.sidekiq',
+            'service_check_name': 'gitlab.prometheus_sidekiq_endpoint_up',
+            'allowed_metrics': [
+                'sidekiq_queue_size',
+                'sidekiq_queue_latency',
+                'sidekiq_running_jobs_count',
+                'sidekiq_dead_jobs_total'
+            ],
+            'ignore_unmapped': True
+        }
+    }
 
     """
     Collect Gitlab metrics from Prometheus and validates that the connectivity with Gitlab
     """
     def __init__(self, name, init_config, agentConfig, instances=None):
         super(GitlabCheck, self).__init__(name, init_config, agentConfig, instances)
-        # Mapping from Prometheus metrics names to Datadog ones
-        # For now it's a 1:1 mapping
-        # TODO: mark some metrics as rate
-        allowed_metrics = init_config.get('allowed_metrics')
-
-        if not allowed_metrics:
-            raise CheckException("At least one metric must be whitelisted in `allowed_metrics`.")
-
-        self.metrics_mapper = dict(zip(allowed_metrics, allowed_metrics))
-        self.NAMESPACE = 'gitlab'
+        self._scrapers = {}
 
     def check(self, instance):
-        #### Metrics collection
-        endpoint = instance.get('prometheus_endpoint')
-        if endpoint is None:
-            raise CheckException("Unable to find prometheus_endpoint in config file.")
-
-        # By default we send the buckets
-        send_buckets = _is_affirmative(instance.get('send_histograms_buckets', True))
-        custom_tags = instance.get('tags', [])
-
-        try:
-            self.process(endpoint, send_histograms_buckets=send_buckets, instance=instance)
-            self.service_check(self.PROMETHEUS_SERVICE_CHECK_NAME, PrometheusCheck.OK, tags=custom_tags)
-        except requests.exceptions.ConnectionError as e:
-            # Unable to connect to the metrics endpoint
-            self.service_check(self.PROMETHEUS_SERVICE_CHECK_NAME, PrometheusCheck.CRITICAL,
-                               message="Unable to retrieve Prometheus metrics from endpoint %s: %s" % (endpoint, e.message), tags=custom_tags)
+        for metrics_type, config in self.PROMETHEUS_CONFIG.iteritems():
+            self._process_metrics(instance, metrics_type, config)
 
         #### Service check to check Gitlab's health endpoints
         for check_type in self.ALLOWED_SERVICE_CHECKS:
-            self._check_health_endpoint(instance, check_type, custom_tags)
+            self._check_health_endpoint(instance, check_type)
 
+    def _process_metrics(self, instance, metrics_type, config):
+        # The endpoint is still configured via yml i.e., prometheus_core_endpoint
+        config_key = "prometheus_%s_endpoint" % metrics_type
+        endpoint = instance.get(config_key)
+        if endpoint is None:
+            raise CheckException("Unable to find %s in config file." % config_key)
+
+        # By default we send the buckets
+        scraper = self._get_scraper(instance, endpoint, config['namespace'], config['allowed_metrics'])
+
+        try:
+            scraper.process(endpoint, instance=instance, ignore_unmapped=config['ignore_unmapped'],
+                            send_histograms_buckets=instance.get('send_histograms_buckets', True))
+            self.service_check(config['service_check_name'], PrometheusCheck.OK)
+        except requests.exceptions.ConnectionError as e:
+            # Unable to connect to the metrics endpoint
+            self.service_check(config['service_check_name'], PrometheusCheck.CRITICAL,
+                               message="Unable to retrieve metrics from endpoint %s: %s" % (endpoint, e.message))
+
+    def _get_scraper(self, instance, endpoint, namespace, metrics):
+        """
+        Grab the gitlab core scraper from the dict and return it if it exists,
+        otherwise create the scraper and add it to the dict
+        """
+        if self._scrapers.get(endpoint, None):
+            return self._scrapers.get(endpoint)
+
+        scraper = Scraper(self)
+        self._scrapers[endpoint] = scraper
+        scraper.NAMESPACE = namespace
+        # 1:1 mapping for now
+        scraper.metrics_mapper = dict(zip(metrics, metrics))
+        scraper.label_to_hostname = endpoint
+        scraper = self._shared_scraper_config(scraper, instance)
+
+        return scraper
+
+    def _shared_scraper_config(self, scraper, instance):
+        """
+        Configuration that is shared by all the scrapers
+        """
+        scraper.labels_mapper = instance.get("labels_mapper", {})
+        scraper.label_joins = instance.get("label_joins", {})
+        scraper.type_overrides = instance.get("type_overrides", {})
+        scraper.exclude_labels = instance.get("exclude_labels", [])
+        # For simple values instance settings overrides optional defaults
+        scraper.health_service_check = instance.get("health_service_check", True)
+        scraper.ssl_cert = instance.get("ssl_cert", None)
+        scraper.ssl_private_key = instance.get("ssl_private_key", None)
+        scraper.ssl_ca_cert = instance.get("ssl_ca_cert", None)
+
+        return scraper
 
     def _verify_ssl(self, instance):
         ## Load the ssl configuration

@@ -1,7 +1,7 @@
 {
   "manifest_version": "1.0.0",
   "name": "istio",
-  "display_name": "istio",
+  "display_name": "Istio",
   "support": "core",
   "supported_os": [
     "linux",
@@ -9,19 +9,14 @@
     "windows"
   ],
   "maintainer": "help@datadoghq.com",
-  "short_description": "Collect performance schema metrics, query throughput, custom metrics, and more.",
+  "short_description": "An open platform to connect, manage, and secure microservices",
   "description": "The istio integration collects data from the istio service mesh and mixer.",
-  "resources": {
-    "small": "resources/small_mysql.png",
-    "bot": "resources/bot_mysql.png",
-    "monitor_editor": "resources/monitor_mysql.png",
-    "my_image": "resources/mysql.png"
-  },
   "guid": "d8bd53c0-0884-4357-9517-11858bf6aa9d",
   "public_title": "Datadog-Istio Integration",
   "categories":["data store"],
   "type":"check",
   "doc_link": "https://docs.datadoghq.com/integrations/istio/",
   "is_public": true,
-  "has_logo": true
+  "has_logo": true,
+  "creates_events": false
 }

@@ -1,0 +1,182 @@
+{
+  "kind": "PodList",
+  "apiVersion": "v1",
+  "metadata": {},
+  "items": [
+    {
+      "metadata": {
+        "name": "redis-c7db4d97f-g7rc8",
+        "generateName": "redis-c7db4d97f-",
+        "namespace": "default",
+        "selfLink": "/api/v1/namespaces/default/pods/redis-c7db4d97f-g7rc8",
+        "uid": "cdd0c84e-5ff9-11e8-948a-000c29dea4f6",
+        "resourceVersion": "838",
+        "creationTimestamp": "2018-05-25T08:58:33Z",
+        "labels": {
+          "app": "redis",
+          "pod-template-hash": "738608539"
+        },
+        "annotations": {
+          "ad.datadoghq.com/redis.check_names": "[\"redisdb\"]",
+          "ad.datadoghq.com/redis.init_configs": "[{}]",
+          "ad.datadoghq.com/redis.instances": "[{\"host\": \"%%host%%\", \"port\": \"%%port%%\"}]",
+          "kubernetes.io/config.seen": "2018-05-25T10:58:33.944091145+02:00",
+          "kubernetes.io/config.source": "api"
+        },
+        "ownerReferences": [
+          {
+            "apiVersion": "extensions/v1beta1",
+            "kind": "ReplicaSet",
+            "name": "redis-c7db4d97f",
+            "uid": "cdcf8170-5ff9-11e8-948a-000c29dea4f6",
+            "controller": true,
+            "blockOwnerDeletion": true
+          }
+        ]
+      },
+      "spec": {
+        "volumes": [
+          {
+            "name": "default-token-z8pkq",
+            "secret": {
+              "secretName": "default-token-z8pkq",
+              "defaultMode": 420
+            }
+          }
+        ],
+        "initContainers": [
+          {
+            "name": "useless",
+            "image": "busybox:latest",
+            "command": [
+              "/bin/true"
+            ],
+            "resources": {
+              "limits": {
+                "cpu": "50m",
+                "memory": "64Mi"
+              },
+              "requests": {
+                "cpu": "25m",
+                "memory": "32Mi"
+              }
+            },
+            "volumeMounts": [
+              {
+                "name": "default-token-z8pkq",
+                "readOnly": true,
+                "mountPath": "/var/run/secrets/kubernetes.io/serviceaccount"
+              }
+            ],
+            "terminationMessagePath": "/dev/termination-log",
+            "terminationMessagePolicy": "File",
+            "imagePullPolicy": "Always"
+          }
+        ],
+        "containers": [
+          {
+            "name": "redis",
+            "image": "redis",
+            "ports": [
+              {
+                "containerPort": 6379,
+                "protocol": "TCP"
+              }
+            ],
+            "resources": {
+              "limits": {
+                "cpu": "100m",
+                "memory": "128Mi"
+              },
+              "requests": {
+                "cpu": "50m",
+                "memory": "64Mi"
+              }
+            },
+            "volumeMounts": [
+              {
+                "name": "default-token-z8pkq",
+                "readOnly": true,
+                "mountPath": "/var/run/secrets/kubernetes.io/serviceaccount"
+              }
+            ],
+            "terminationMessagePath": "/dev/termination-log",
+            "terminationMessagePolicy": "File",
+            "imagePullPolicy": "Always"
+          }
+        ],
+        "restartPolicy": "Always",
+        "terminationGracePeriodSeconds": 30,
+        "dnsPolicy": "ClusterFirst",
+        "serviceAccountName": "default",
+        "serviceAccount": "default",
+        "nodeName": "v1704",
+        "securityContext": {},
+        "schedulerName": "default-scheduler"
+      },
+      "status": {
+        "phase": "Running",
+        "conditions": [
+          {
+            "type": "Initialized",
+            "status": "True",
+            "lastProbeTime": null,
+            "lastTransitionTime": "2018-05-25T08:58:38Z"
+          },
+          {
+            "type": "Ready",
+            "status": "True",
+            "lastProbeTime": null,
+            "lastTransitionTime": "2018-05-25T08:58:41Z"
+          },
+          {
+            "type": "PodScheduled",
+            "status": "True",
+            "lastProbeTime": null,
+            "lastTransitionTime": "2018-05-25T08:58:33Z"
+          }
+        ],
+        "hostIP": "192.168.128.158",
+        "podIP": "172.17.0.6",
+        "startTime": "2018-05-25T08:58:33Z",
+        "initContainerStatuses": [
+          {
+            "name": "useless",
+            "state": {
+              "terminated": {
+                "exitCode": 0,
+                "reason": "Completed",
+                "startedAt": "2018-05-25T08:58:37Z",
+                "finishedAt": "2018-05-25T08:58:37Z",
+                "containerID": "docker://fd6d3094dc46adcbe2fdcc9fd9025a34bb9bec6364b5e8f514f72a1d72748042"
+              }
+            },
+            "lastState": {},
+            "ready": true,
+            "restartCount": 0,
+            "image": "busybox:latest",
+            "imageID": "docker-pullable://busybox@sha256:141c253bc4c3fd0a201d32dc1f493bcf3fff003b6df416dea4f41046e0f37d47",
+            "containerID": "docker://fd6d3094dc46adcbe2fdcc9fd9025a34bb9bec6364b5e8f514f72a1d72748042"
+          }
+        ],
+        "containerStatuses": [
+          {
+            "name": "redis",
+            "state": {
+              "running": {
+                "startedAt": "2018-05-25T08:58:41Z"
+              }
+            },
+            "lastState": {},
+            "ready": true,
+            "restartCount": 0,
+            "image": "redis:latest",
+            "imageID": "docker-pullable://redis@sha256:4aed8ea5a5fc4cf05c8d5341b4ae4a4f7c0f9301082a74f6f9a5f321140e0cd3",
+            "containerID": "docker://70e64439520f220fca63d1b4fa553a106098df8a2650030b5929230dae2023bb"
+          }
+        ],
+        "qosClass": "Burstable"
+      }
+    }
+  ]
+}

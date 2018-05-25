@@ -349,11 +349,17 @@ def mocked_get_tags(entity, _):
         "kubernetes_pod://2edfd4d9-10ce-11e8-bd5a-42010af00137": [
             "pod_name:fluentd-gcp-v2.0.10-9q9t4"
         ],
+        "kubernetes_pod://cdd0c84e-5ff9-11e8-948a-000c29dea4f6": [
+            "pod_name:redis-c7db4d97f-g7rc8"
+        ],
+        "docker://70e64439520f220fca63d1b4fa553a106098df8a2650030b5929230dae2023bb": [
+            "pod_name:redis-c7db4d97f-g7rc8",
+        ],
         'docker://5741ed2471c0e458b6b95db40ba05d1a5ee168256638a0264f08703e48d76561': [
             'pod_name:fluentd-gcp-v2.0.10-9q9t4'
         ],
         "docker://5f93d91c7aee0230f77fbe9ec642dd60958f5098e76de270a933285c24dfdc6f": [
-            "pod_name=demo-app-success-c485bc67b-klj45"
+            "pod_name:demo-app-success-c485bc67b-klj45"
         ]
     }
     return tag_store.get(entity, [])
@@ -395,7 +401,7 @@ def test_report_container_spec_metrics(monkeypatch):
         mock.call('kubernetes.memory.requests', 134217728.0, instance_tags),
         mock.call('kubernetes.cpu.limits', 0.25, instance_tags),
         mock.call('kubernetes.memory.limits', 536870912.0, instance_tags),
-        mock.call('kubernetes.cpu.requests', 0.1, ["pod_name=demo-app-success-c485bc67b-klj45"] + instance_tags),
+        mock.call('kubernetes.cpu.requests', 0.1, ["pod_name:demo-app-success-c485bc67b-klj45"] + instance_tags),
     ]
     check.gauge.assert_has_calls(calls, any_order=True)
 
@@ -434,3 +440,30 @@ def test_report_node_metrics(monkeypatch):
         mock.call('kubernetes.memory.capacity', 512.0, ['foo:bar'])
     ]
     check.gauge.assert_has_calls(calls, any_order=False)
+
+
+def test_init_containers(monkeypatch):
+    check = KubeletCheck('kubelet', None, {}, [{}])
+    monkeypatch.setattr(check, 'retrieve_pod_list',
+                        mock.Mock(return_value=json.loads(mock_from_file('pods_1.10.json'))))
+    monkeypatch.setattr(check, 'gauge', mock.Mock())
+
+    attrs = {'is_excluded.return_value': False}
+    check.container_filter = mock.Mock(**attrs)
+
+    pod_list = check.retrieve_pod_list()
+    instance_tags = []
+    with mock.patch("datadog_checks.kubelet.kubelet.get_tags", side_effect=mocked_get_tags):
+        check._report_container_spec_metrics(pod_list, instance_tags)
+
+    calls = [
+        mock.call('kubernetes.cpu.requests', 0.025, ['pod_name:redis-c7db4d97f-g7rc8'] + instance_tags),
+        mock.call('kubernetes.memory.requests', 209715200.0, ['pod_name:redis-c7db4d97f-g7rc8'] + instance_tags),
+        mock.call('kubernetes.memory.limits', 314572800.0, ['pod_name:redis-c7db4d97f-g7rc8'] + instance_tags),
+        mock.call('kubernetes.cpu.requests', 0.1, instance_tags),
+        mock.call('kubernetes.cpu.requests', 0.1, instance_tags),
+        mock.call('kubernetes.memory.requests', 134217728.0, instance_tags),
+        mock.call('kubernetes.cpu.limits', 0.25, instance_tags),
+        mock.call('kubernetes.memory.limits', 536870912.0, instance_tags),
+    ]
+    check.gauge.assert_has_calls(calls, any_order=True)

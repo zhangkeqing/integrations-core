@@ -267,40 +267,45 @@ class KubeletCheck(PrometheusCheck, CadvisorScraper):
             if not pod_name:
                 continue
 
-            for ctr in pod['spec']['containers']:
-                if not ctr.get('resources'):
-                    continue
+            for container_type in [("initContainers", "initContainerStatuses"), ("containers", "containerStatuses")]:
+                for ctr in pod['spec'].get(container_type[0], []):
+                    if not ctr.get('resources'):
+                        continue
 
-                c_name = ctr.get('name', '')
-                cid = None
+                    c_name = ctr.get('name', '')
+                    cid = None
 
-                for ctr_status in pod['status'].get('containerStatuses', []):
-                    if ctr_status.get('name') == c_name:
-                        # it is already prefixed with 'docker://'
-                        cid = ctr_status.get('containerID')
-                        break
-                if not cid:
-                    continue
+                    for ctr_status in pod['status'].get(container_type[1], []):
+                        if ctr_status.get('name') == c_name:
+                            # it is already prefixed with 'docker://'
+                            cid = ctr_status.get('containerID')
+                            break
+                    if not cid:
+                        continue
 
-                pod_uid = pod.get('metadata', {}).get('uid')
-                if self.container_filter.is_excluded(cid, pod_uid):
-                    continue
+                    pod_uid = pod.get('metadata', {}).get('uid')
+                    if self.container_filter.is_excluded(cid, pod_uid):
+                        continue
 
-                tags = get_tags('%s' % cid, True) + instance_tags
+                    tags = get_tags('%s' % cid, True) + instance_tags
+                    # TODO do this in the tagger
+                    if container_type[0] == "initContainers":
+                        tags += get_tags('kubernetes_pod://%s' % pod_uid, True)
+                        tags.append("init_container:%s" % c_name)
 
-                try:
-                    for resource, value_str in ctr.get('resources', {}).get('requests', {}).iteritems():
-                        value = self.parse_quantity(value_str)
-                        self.gauge('{}.{}.requests'.format(self.NAMESPACE, resource), value, tags)
-                except (KeyError, AttributeError) as e:
-                    self.log.debug("Unable to retrieve container requests for %s: %s", c_name, e)
+                    try:
+                        for resource, value_str in ctr.get('resources', {}).get('requests', {}).iteritems():
+                            value = self.parse_quantity(value_str)
+                            self.gauge('{}.{}.requests'.format(self.NAMESPACE, resource), value, tags)
+                    except (KeyError, AttributeError) as e:
+                        self.log.debug("Unable to retrieve container requests for %s: %s", c_name, e)
 
-                try:
-                    for resource, value_str in ctr.get('resources', {}).get('limits', {}).iteritems():
-                        value = self.parse_quantity(value_str)
-                        self.gauge('{}.{}.limits'.format(self.NAMESPACE, resource), value, tags)
-                except (KeyError, AttributeError) as e:
-                    self.log.debug("Unable to retrieve container limits for %s: %s", c_name, e)
+                    try:
+                        for resource, value_str in ctr.get('resources', {}).get('limits', {}).iteritems():
+                            value = self.parse_quantity(value_str)
+                            self.gauge('{}.{}.limits'.format(self.NAMESPACE, resource), value, tags)
+                    except (KeyError, AttributeError) as e:
+                        self.log.debug("Unable to retrieve container limits for %s: %s", c_name, e)
 
     @staticmethod
     def parse_quantity(string):

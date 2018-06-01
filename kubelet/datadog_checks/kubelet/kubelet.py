@@ -68,8 +68,6 @@ class KubeletCheck(AgentCheck, CadvisorScraper):
         self.cadvisor_legacy_port = inst.get('cadvisor_port', CADVISOR_DEFAULT_PORT)
         self.cadvisor_legacy_url = None
 
-        self.cadvisor_scraper = CadvisorPrometheusScraper(self)
-
         self.kubelet_scraper = PrometheusScraper(self)
         self.kubelet_scraper.NAMESPACE = 'kubernetes'
         self.kubelet_scraper.metrics_mapper = {
@@ -78,6 +76,8 @@ class KubeletCheck(AgentCheck, CadvisorScraper):
             'kubelet_runtime_operations': 'kubelet.runtime.operations',
             'kubelet_runtime_operations_errors': 'kubelet.runtime.errors',
         }
+
+        self.cadvisor_scraper = CadvisorPrometheusScraper(self)
 
     def check(self, instance):
         self.kubelet_conn_info = get_connection_info()

@@ -4,9 +4,9 @@
 
 import pytest
 
-import common
-from datadog_checks.consul import ConsulCheck
 from requests import HTTPError
+
+from .common import URL
 
 METRICS = [
     'consul.catalog.nodes_up',
@@ -30,7 +30,7 @@ METRICS = [
 ]
 
 CONFIG_INTEGRATION = {
-    'url': common.URL,
+    'url': URL,
     'catalog_checks': True,
     'network_latency_checks': True,
     'new_leader_checks': True,
@@ -40,7 +40,7 @@ CONFIG_INTEGRATION = {
 }
 
 CONFIG_INTEGRATION_WRONG_TOKEN = {
-    'url': common.URL,
+    'url': URL,
     'catalog_checks': True,
     'network_latency_checks': True,
     'new_leader_checks': True,
@@ -51,13 +51,12 @@ CONFIG_INTEGRATION_WRONG_TOKEN = {
 
 
 @pytest.mark.integration
-def test_integration(aggregator, consul_cluster):
+def test_integration(aggregator, consul_cluster, check):
     """
     Testing Consul Integration
     """
 
-    consul_check = ConsulCheck(common.CHECK_NAME, {}, {})
-    consul_check.check(CONFIG_INTEGRATION)
+    check.check(CONFIG_INTEGRATION)
 
     for m in METRICS:
         aggregator.assert_metric(m, at_least=0)
@@ -67,21 +66,43 @@ def test_integration(aggregator, consul_cluster):
     aggregator.assert_service_check('consul.check')
     aggregator.assert_service_check('consul.up', tags=[
         'consul_datacenter:dc1',
-        'consul_url:{}'.format(common.URL)
+        'consul_url:{}'.format(URL)
     ])
 
 
 @pytest.mark.integration
-def test_acl_forbidden(aggregator, consul_cluster):
+def test_prometheus_metrics(aggregator, consul_cluster, check):
+    """
+    Testing Consul Prometheus metrics
+    """
+    config = CONFIG_INTEGRATION.copy()
+    config["scrape_prometheus_endpoint"] = True
+    check.check(config)
+
+    for m in METRICS:
+        aggregator.assert_metric(m, at_least=0)
+
+    aggregator.assert_metric('consul.peers', value=3)
+    print(aggregator._metrics)
+    print(aggregator.metrics('consul.raft.replication.append_entries'))
+    aggregator.assert_metric('consul.acl.resolve_token')
+
+    aggregator.assert_service_check('consul.check')
+    aggregator.assert_service_check('consul.up', tags=[
+        'consul_datacenter:dc1',
+        'consul_url:{}'.format(URL)
+    ])
+
+
+@pytest.mark.integration
+def test_acl_forbidden(aggregator, consul_cluster, check):
     """
     Testing Consul Integration with wrong ACL token
     """
 
-    consul_check = ConsulCheck(common.CHECK_NAME, {}, {})
-
     got_error_403 = False
     try:
-        consul_check.check(CONFIG_INTEGRATION_WRONG_TOKEN)
+        check.check(CONFIG_INTEGRATION_WRONG_TOKEN)
     except HTTPError as e:
         if e.response.status_code == 403:
             got_error_403 = True

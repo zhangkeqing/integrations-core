@@ -3,8 +3,22 @@ init_config:
 
 instances:
     # Where your Consul HTTP Server Lives
-    # Remind to use https instead of http if your Consul setup is configured to do so.
+    # Remember to use https instead of http if your Consul setup is configured to do so.
     - url: http://localhost:8500
+
+      # Optional, requires consul 1.1.0 or later to work, default to false
+      # Scrape the prometheus endpoint to get additional metrics for consul.
+      # To enable the prometheus endpoint in consul, you need to set the
+      # `prometheus_retention_time` and enable `disable_hostname` flag in your consul configuration,
+      # according to https://www.consul.io/docs/agent/options.html#telemetry-prometheus_retention_time
+      # e.g.
+      # {
+      #   "telemetry": {
+      #     "prometheus_retention_time": "1m",
+      #     "disable_hostname": true
+      #  }
+      # }
+      scrape_prometheus_endpoint: false 
 
       # If Consul setup uses SSL, you might need to set the following options as well.
 

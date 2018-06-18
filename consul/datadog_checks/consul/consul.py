@@ -11,7 +11,9 @@ from urlparse import urljoin
 
 # project
 from datadog_checks.checks import AgentCheck
+from datadog_checks.checks.prometheus import PrometheusCheck
 from datadog_checks.utils.containers import hash_mutable
+from datadog_checks.config import _is_affirmative
 
 # 3p
 import requests
@@ -47,7 +49,14 @@ class ConsulCheckInstanceState(object):
         self.last_known_leader = None
 
 
-class ConsulCheck(AgentCheck):
+NODE_ID_REGEX = r"(?P<node_id>[a-fA-F0-9_]{36})"
+ENTRY_TYPE_REGEX = r"(?P<entry_type>\w+)"
+HTTP_VERB_REGEX = r"(?P<http_verb>GET|POST|PATCH|PUT|DELETE|HEAD|CONNECT|OPTIONS|TRACE)"
+HTTP_PATH_REGEX = r"(?P<http_path>\w+)"
+OP_REGEX = r"(?P<operation>\w+)"
+SERVICE_REGEX = r"(?P<service>\w+)"
+
+class ConsulCheck(PrometheusCheck):
     CONSUL_CHECK = 'consul.up'
     HEALTH_CHECK = 'consul.check'
 
@@ -72,10 +81,145 @@ class ConsulCheck(AgentCheck):
         AgentCheck.CRITICAL: 3,
     }
 
+    PROMETHEUS_ENDPOINT = "/v1/agent/metrics?format=prometheus"
+
     def __init__(self, name, init_config, agentConfig, instances=None):
-        AgentCheck.__init__(self, name, init_config, agentConfig, instances)
+        PrometheusCheck.__init__(self, name, init_config, agentConfig, instances)
 
         self._instance_states = defaultdict(lambda: ConsulCheckInstanceState())
+
+        # Prometheus check specific bits
+        self.NAMESPACE = "consul"
+        # Metrics taken from https://www.consul.io/docs/agent/telemetry.html
+        # Not all metrics are documented as of yet: https://github.com/hashicorp/consul/issues/3331,
+        # so some of the metrics come from what was exposed by a running container
+        self.metrics_mapper = {
+            "consul_client_rpc": "client.rpc",
+            "consul_client_rpc_exceeded": "client.rpc.exceeded",
+            "consul_runtime_num_goroutines": "runtime.num_goroutines",
+            "consul_runtime_alloc_bytes": "runtime.alloc_bytes",
+            "consul_runtime_heap_objects": "runtime.heap_objects",
+            "consul_runtime_free_count": "runtime.free.count",
+            "consul_runtime_gc_pause_ns": "runtime.gc.pause.ns",
+            "consul_runtime_malloc_count": "runtime.malloc.count",
+            "consul_runtime_sys_bytes": "runtime.sys.bytes",
+            "consul_runtime_total_gc_pause_ns": "runtime.total.gc.pause.ns",
+            "consul_runtime_total_gc_runs": "runtime.total.gc.runs",
+            "consul_acl_cache_hit": "acl.cache_hit",
+            "consul_acl_cache_miss": "acl.cache_miss",
+            "consul_acl_replication_hit": "acl.replication_hit",
+            "consul_dns_stale_queries": "dns.stale_queries",
+            "consul_raft_state_leader": "raft.state.leader",
+            "consul_raft_state_candidate": "raft.state.candidate",
+            "consul_raft_apply": "raft.apply",
+            "consul_raft_commitTime": "raft.commit_time",
+            "consul_raft_leader_dispatchLog": "raft.leader.dispatch_log",
+            "consul_raft_leader_lastContact": "raft.leader.last_contact",
+            "consul_raft_barrier": "raft.barrier",
+            "consul_raft_candidate_electSelf": "raft.candidate.elect_self",
+            "consul_raft_fsm_apply": "raft.fsm.apply",
+            "consul_raft_rpc_appendEntries": "raft.rpc.append_entries",
+            "consul_raft_rpc_processHeartbeat": "raft.rpc.process_heartbeat",
+            "consul_raft_rpc_requestVote": "raft.rpc.request_vote",
+            "consul_raft_state_follower": "raft.state.follower",
+            "consul_raft_transition_heartbeat_timeout": "raft.transition.heartbeat.timeout",
+            "consul_raft_transition_leader_lease_timeout": "raft.transition.leader.lease.timeout",
+            "consul_acl_apply": "acl.apply",
+            "consul_acl_fault": "acl.fault",
+            "consul_acl_fetchRemoteACLs": "acl.fetch_remote_acls",
+            "consul_acl_updateLocalACLs": "acl.update_local_acls",
+            "consul_acl_replicateACLs": "acl.replicate_acls",
+            "consul_acl_resolveToken": "acl.resolve_token",
+            "consul_rpc_accept_conn": "rpc.accept_conn",
+            "consul_catalog_register": "catalog.register",
+            "consul_catalog_deregister": "catalog.deregister",
+            "consul_fsm_register": "fsm.register",
+            "consul_fsm_deregister": "fsm.deregister",
+            "consul_fsm_coordinate_batch-update": "fsm.coordinate.batch_update",
+            "consul_fsm_txn": "fsm.txn",
+            "consul_fsm_autopilot": "fsm.autopilot",
+            "consul_fsm_persist": "fsm.persist",
+            "consul_kvs_apply": "kvs.apply",
+            "consul_leader_barrier": "leader.barrier",
+            "consul_leader_reconcile": "leader.reconcile",
+            "consul_leader_reconcileMember": "leader.reconcile_member",
+            "consul_leader_reapTombstones": "leader.reap_tombstones",
+            "consul_prepared-query_apply": "prepared_query.apply",
+            "consul_prepared-query_explain": "prepared_query.explain",
+            "consul_prepared-query_execute": "prepared_query.execute",
+            "consul_prepared-query_execute_remote": "prepared_query.execute_remote",
+            "consul_rpc_raft_handoff": "rpc.raft_handoff",
+            "consul_rpc_request_error": "rpc.request_error",
+            "consul_rpc_request": "rpc.request",
+            "consul_rpc_query": "rpc.query",
+            "consul_rpc_cross-dc": "rpc.cross_dc",
+            "consul_rpc_consistentRead": "rpc.consistent_read",
+            "consul_session_apply": "session.apply",
+            "consul_session_renew": "session.renew",
+            "consul_session_ttl_invalidate": "session_ttl.invalidate",
+            "consul_txn_apply": "txn.apply",
+            "consul_txn_read": "txn.read",
+            "consul_memberlist_msg_suspect": "memberlist.msg.suspect",
+            "consul_memberlist_degraded_probe": "memberlist.degraded_probe",
+            "consul_memberlist_gossip": "memberlist.gossip",
+            "consul_memberlist_health_score": "memberlist.health_score",
+            "consul_memberlist_msg_alive": "memberlist.msg.alive",
+            "consul_memberlist_probeNode": "memberlist.probe_node",
+            "consul_memberlist_pushPullNode": "memberlist.push_pull_node",
+            "consul_memberlist_tcp_accept": "memberlist.tcp.accept",
+            "consul_memberlist_tcp_connect": "memberlist.tcp.connect",
+            "consul_memberlist_tcp_sent": "memberlist.tcp.sent",
+            "consul_memberlist_udp_received": "memberlist.udp.received",
+            "consul_memberlist_udp_sent": "memberlist.udp.sent",
+            "consul_serf_member_flap": "serf.member.flap",
+            "consul_serf_events": "serf.events",
+            "consul_serf_coordinate_adjustment_ms": "serf.coordinate.adjustment.ms",
+            "consul_serf_msgs_received": "serf.msgs.received",
+            "consul_serf_msgs_sent": "serf.msgs.sent",
+            "consul_serf_queue_Event": "serf.queue.event",
+            "consul_serf_queue_Intent": "serf.queue.entent",
+            "consul_serf_queue_Query": "serf.queue.query",
+            "consul_autopilot_failure_tolerance": "autopilot.failure_tolerance",
+            "consul_autopilot_healthy": "autopilot.healthy",
+            "consul_session_ttl_active": "session_ttl.active",
+            r"^consul_raft_replication_appendEntries_{}_{}$".format(ENTRY_TYPE_REGEX, NODE_ID_REGEX): "raft.replication.append_entries",
+            r"^consul_client_api_catalog_register_{}$".format(NODE_ID_REGEX): "client.api.catalog_register",
+            r"^consul_client_api_success_catalog_register_{}$".format(NODE_ID_REGEX): "client.api.success.catalog_register",
+            r"^consul_client_rpc_error_catalog_register_{}$".format(NODE_ID_REGEX): "client.rpc.error.catalog_register",
+            r"^consul_client_api_catalog_deregister_{}$".format(NODE_ID_REGEX): "client.api.catalog_deregister",
+            r"^consul_client_api_success_catalog_deregister_{}$".format(NODE_ID_REGEX): "client.api.success.catalog_deregister",
+            r"^consul_client_rpc_error_catalog_deregister_{}$".format(NODE_ID_REGEX): "client.rpc.error.catalog_deregister",
+            r"^consul_client_api_catalog_datacenters_{}$".format(NODE_ID_REGEX): "client.api.catalog_datacenters",
+            r"^consul_client_api_success_catalog_datacenters_{}$".format(NODE_ID_REGEX): "client.api.success.catalog_datacenters",
+            r"^consul_client_rpc_error_catalog_datacenters_{}$".format(NODE_ID_REGEX): "client.rpc.error.catalog_datacenters",
+            r"^consul_client_api_catalog_nodes_{}$".format(NODE_ID_REGEX): "client.api.catalog_nodes",
+            r"^consul_client_api_success_catalog_nodes_{}$".format(NODE_ID_REGEX): "client.api.success.catalog_nodes",
+            r"^consul_client_rpc_error_catalog_nodes_{}$".format(NODE_ID_REGEX): "client.rpc.error.catalog_nodes",
+            r"^consul_client_api_catalog_services_{}$".format(NODE_ID_REGEX): "client.api.catalog_services",
+            r"^consul_client_api_success_catalog_services_{}$".format(NODE_ID_REGEX): "client.api.success.catalog_services",
+            r"^consul_client_rpc_error_catalog_services_{}$".format(NODE_ID_REGEX): "client.rpc.error.catalog_services",
+            r"^consul_client_api_catalog_service_nodes_{}$".format(NODE_ID_REGEX): "client.api.catalog_service_nodes",
+            r"^consul_client_api_success_catalog_service_nodes_{}$".format(NODE_ID_REGEX): "client.api.success.catalog_service_nodes",
+            r"^consul_client_rpc_error_catalog_service_nodes_{}$".format(NODE_ID_REGEX): "client.rpc.error.catalog_service_nodes",
+            r"^consul_client_api_catalog_node_services_{}$".format(NODE_ID_REGEX): "client.api.catalog_node_services",
+            r"^consul_client_api_success_catalog_node_services_{}$".format(NODE_ID_REGEX): "client.api.success.catalog_node_services",
+            r"^consul_client_rpc_error_catalog_node_services_{}$".format(NODE_ID_REGEX): "client.rpc.error.catalog_node_services",
+            r"^consul_dns_ptr_query_{}$".format(NODE_ID_REGEX): "dns.ptr_query",
+            r"^consul_dns_domain_query_{}$".format(NODE_ID_REGEX): "dns.domain_query",
+            r"^consul_http_{}_{}$".format(HTTP_VERB_REGEX, HTTP_PATH_REGEX): "http",
+            r"^consul_fsm_acl_{}$".format(OP_REGEX): "fsm.acl",
+            r"^consul_fsm_session_{}$".format(OP_REGEX): "fsm.session",
+            r"^consul_fsm_kvs_{}$".format(OP_REGEX): "fsm.kvs",
+            r"^consul_fsm_tombstone_{}$".format(OP_REGEX): "fsm.tombstone",
+            r"^consul_fsm_prepared-query_{}$".format(OP_REGEX): "fsm.prepared_query",
+            r"^consul_serf_events_{}$".format(EVENT_NAME_REGEX): "serf.events",
+            r"^consul_catalog_service_query_<service>$".format(): "catalog.service.query",
+            r"^consul_catalog_service_query-tag_<service>_<tag>$".format(): "catalog.service.query_tag",
+            r"^consul_catalog_service_not-found_<service>$".format(): "catalog.service.not_found",
+            r"^consul_health_service_query_<service>$".format(): "health.service.query",
+            r"^consul_health_service_query-tag_<service>_<tag>$".format(): "health.service.query_tag",
+            r"^consul_health_service_not-found_<service>$".format(): "health.service.not_found",
+        }
 
     def consul_request(self, instance, endpoint):
         url = urljoin(instance.get('url'), endpoint)
@@ -190,10 +334,10 @@ class ConsulCheck(AgentCheck):
 
                 self.event({
                     "timestamp": int(datetime.now().strftime("%s")),
-                    "event_type": "consul.new_leader",
+                    "event_type": "new_leader",
                     "source_type_name": self.SOURCE_TYPE_NAME,
                     "msg_title": "New Consul Leader Elected in consul_datacenter:{0}".format(agent_dc),
-                    "aggregation_key": "consul.new_leader",
+                    "aggregation_key": "new_leader",
                     "msg_text": "The Node at {0} is the new leader of the consul datacenter {1}".format(
                         leader,
                         agent_dc
@@ -249,6 +393,27 @@ class ConsulCheck(AgentCheck):
         # Instance state is mutable, any changes to it will be reflected in self._instance_states
         instance_state = self._instance_states[hash_mutable(instance)]
 
+        # Scrape prometheus endpoint for additional metrics if enabled and consul version >= 1.1.0
+        if _is_affirmative(instance.get("scrape_prometheus_endpoint", False)):
+            consul_version = self._get_local_config(instance, instance_state).get("Config", {}).get("Version", {})
+            if tuple(consul_version.split(".")) >= (1, 1, 0):
+                endpoint = "{}{}".format(instance.get("url"), self.PROMETHEUS_ENDPOINT)
+                acl_token = instance.get("acl_token")
+                if acl_token:
+                    self.extra_headers["X-Consul-Token"] = acl_token
+                self.process(
+                    endpoint,
+                    instance=instance,
+                    regex_metrics=True,
+                    ignore_unmapped=True,
+                    custom_tags=instance.get("tags")
+                )
+            else:
+                self.log.warn(
+                    "Enabled prometheus metrics in consul.yaml, but your consul \
+                    version {} does not support it: you need consul >= 1.1.0. Skipping.".format(consul_version)
+                )
+
         self._check_for_leader_change(instance, instance_state)
 
         peers = self.get_peers_in_cluster(instance)
@@ -262,12 +427,12 @@ class ConsulCheck(AgentCheck):
             main_tags.append(tag)
 
         if not self._is_instance_leader(instance, instance_state):
-            self.gauge("consul.peers", len(peers), tags=main_tags + ["mode:follower"])
+            self.gauge("peers", len(peers), tags=main_tags + ["mode:follower"])
             self.log.debug("This consul agent is not the cluster leader." +
                            "Skipping service and catalog checks for this instance")
             return
         else:
-            self.gauge("consul.peers", len(peers), tags=main_tags + ["mode:leader"])
+            self.gauge("peers", len(peers), tags=main_tags + ["mode:leader"])
 
         service_check_tags = main_tags + ['consul_url:{0}'.format(instance.get('url'))]
         perform_catalog_checks = instance.get('catalog_checks',

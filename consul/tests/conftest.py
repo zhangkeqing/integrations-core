@@ -8,7 +8,8 @@ import logging
 import pytest
 import requests
 
-import common
+from datadog_checks.consul import ConsulCheck
+from .common import HERE, CHECK_NAME, PORT, URL
 
 log = logging.getLogger(__file__)
 
@@ -21,7 +22,7 @@ def wait_for_cluster():
     for i in xrange(0, 50):
         sleep(1)
         try:
-            res = requests.get("{}/v1/status/peers".format(common.URL))
+            res = requests.get("{}/v1/status/peers".format(URL))
             # Wait for all 3 agents to join the cluster
             if len(res.json()) == 3:
                 return True
@@ -42,11 +43,11 @@ def consul_cluster():
     """
     env = os.environ
     env['CONSUL_CONFIG_PATH'] = _consul_config_path()
-    env['CONSUL_PORT'] = common.PORT
+    env['CONSUL_PORT'] = PORT
 
     args = [
         "docker-compose",
-        "-f", os.path.join(common.HERE, 'compose', 'compose.yaml')
+        "-f", os.path.join(HERE, 'compose', 'compose.yaml')
     ]
 
     subprocess.check_call(args + ["down"])
@@ -55,7 +56,7 @@ def consul_cluster():
     if not wait_for_cluster():
         raise Exception("Consul cluster boot timed out!")
     yield
-    subprocess.check_call(args + ["down"])
+    # subprocess.check_call(args + ["down"])
 
 
 @pytest.fixture
@@ -65,9 +66,14 @@ def aggregator():
     return aggregator
 
 
+@pytest.fixture
+def check():
+    return ConsulCheck(CHECK_NAME, {}, {})
+
+
 def _consul_config_path():
     server_file = "server-{0}.json".format(_consul_version())
-    return os.path.join(common.HERE, 'compose', server_file)
+    return os.path.join(HERE, 'compose', server_file)
 
 
 def _consul_version():

@@ -12,6 +12,7 @@ from google.protobuf.internal.decoder import _DecodeVarint32  # pylint: disable=
 from ...utils.prometheus import metrics_pb2
 from math import isnan, isinf
 from prometheus_client.parser import text_fd_to_metric_families
+import re
 
 # toolkit
 from .. import AgentCheck
@@ -63,6 +64,10 @@ class PrometheusScraperMixin(object):
 
         # `_metrics_wildcards` holds the potential wildcards to match for metrics
         self._metrics_wildcards = None
+
+        # `_metrics_regexes` holds the potential regexes to match for
+        # metrics containing tags we want to extract and associated metric names as tuples
+        self._metrics_regexes = None
 
         # `prometheus_metrics_prefix` allows to specify a prefix that all
         # prometheus metrics should have. This can be used when the prometheus
@@ -401,7 +406,7 @@ class PrometheusScraperMixin(object):
 
         `send_histograms_buckets` is used to specify if yes or no you want to send the buckets as tagged values when dealing with histograms.
         """
-
+        print("processing metrics")
         # If targeted metric, store labels
         self.store_labels(message)
 
@@ -415,12 +420,43 @@ class PrometheusScraperMixin(object):
         send_monotonic_counter = kwargs.get('send_monotonic_counter', False)
         custom_tags = kwargs.get('custom_tags')
         ignore_unmapped = kwargs.get('ignore_unmapped', False)
+        regex_metrics = kwargs.get("regex_metrics", False)
 
         try:
             if not self._dry_run:
                 try:
-                    self._submit(self.metrics_mapper[message.name], message, send_histograms_buckets, send_monotonic_counter, custom_tags)
+                    self._submit(
+                        self.metrics_mapper[message.name],
+                        message,
+                        send_histograms_buckets,
+                        send_monotonic_counter,
+                        custom_tags
+                    )
                 except KeyError:
+                    # If we want to extract tags from metric names using regexes with named groups
+                    # such as "^metric_name_(?P<tag_name>\w+)$"
+                    if regex_metrics:
+                        # build the regex list if first pass
+                        if self._metrics_regexes is None:
+                            self._metrics_regexes = [
+                                (re.compile(x), self.metrics_mapper[x])
+                                for x in self.metrics_mapper.keys() if x.startswith("^")
+                            ]
+
+                        # try matching regexes
+                        for regex, metric_name in self._metrics_regexes:
+                            match = regex.search(message.name)
+                            if match:
+                                tags_dict = match.groupdict()
+                                tags = ["{}:{}".format(tag_key, tag_value) for tag_key, tag_value in tags_dict.items()]
+                                self._submit(
+                                    metric_name,
+                                    message,
+                                    send_histograms_buckets,
+                                    send_monotonic_counter,
+                                    tags
+                                )
+
                     if not ignore_unmapped:
                         # call magic method (non-generic check)
                         handler = getattr(self, message.name)  # Lookup will throw AttributeError if not found
@@ -431,11 +467,20 @@ class PrometheusScraperMixin(object):
                     else:
                         # build the wildcard list if first pass
                         if self._metrics_wildcards is None:
-                            self._metrics_wildcards = [x for x in self.metrics_mapper.keys() if '*' in x]
+                            self._metrics_wildcards = [
+                                x for x in self.metrics_mapper.keys() if not x.startswith("^") and "*" in x
+                            ]
+
                         # try matching wildcard (generic check)
                         for wildcard in self._metrics_wildcards:
                             if fnmatchcase(message.name, wildcard):
-                                self._submit(message.name, message, send_histograms_buckets, send_monotonic_counter, custom_tags)
+                                self._submit(
+                                    message.name,
+                                    message,
+                                    send_histograms_buckets,
+                                    send_monotonic_counter,
+                                    custom_tags
+                                )
 
         except AttributeError as err:
             self.log.debug("Unable to handle metric: {} - error: {}".format(message.name, err))

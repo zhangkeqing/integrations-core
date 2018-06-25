@@ -1,5 +1,4 @@
 # Haproxy Integration
-![HAProxy Out of the box Dashboard](https://raw.githubusercontent.com/DataDog/integrations-core/39f2cb0977c0e0446a0e905d15d2e9a4349b3b5d/haproxy/images/haproxy-dash.png)
 
 ## Overview
 
@@ -9,20 +8,22 @@ Capture HAProxy activity in Datadog to:
 * Know when a server goes down.
 * Correlate the performance of HAProxy with the rest of your applications.
 
+![HAProxy Out of the box Dashboard][0]
+
 ## Setup
 
 ### Installation
 
 The HAProxy check is packaged with the Agent. To start gathering your HAProxy metrics and logs, you need to:
 
-1. [Install the Agent](https://app.datadoghq.com/account/settings#agent) on your HAProxy servers.
+1. [Install the Agent][1] on your HAProxy servers.
 
-2. Make sure that stats are enabled on your HAProxy configuration. [Read our blog post on collecting HAProxy metrics for more information](https://www.datadoghq.com/blog/how-to-collect-haproxy-metrics/).
+2. Make sure that stats are enabled on your HAProxy configuration. [Read our blog post on collecting HAProxy metrics for more information][2].
 
 ### Configuration
 
-Edit the `haproxy.d/conf.yaml` file, in the `conf.d/` folder at the root of your Agent's directory to start collecting your HAProxy [metrics][12] and [logs][13].
-See the [sample haproxy.d/conf.yaml](https://github.com/DataDog/integrations-core/blob/master/haproxy/conf.yaml.example) for all available configuration options.
+Edit the `haproxy.d/conf.yaml` file, in the `conf.d/` folder at the root of your Agent's directory to start collecting your HAProxy [metrics][12] and [logs](#log-collection).
+See the [sample haproxy.d/conf.yaml][4] for all available configuration options.
 
 #### Prepare HAProxy
 
@@ -45,7 +46,7 @@ The Agent collects metrics via a stats endpoint:
 
 #### Metric Collection
 
-Add this configuration block to your `haproxy.d/conf.yaml` file to start gathering your [Haproxy Metrics](#metrics):
+Add this configuration block to your `haproxy.d/conf.yaml` file to start gathering your [Haproxy Metrics][13]:
 
 ```
   init_config:
@@ -115,6 +116,7 @@ Need help? Contact [Datadog Support](http://docs.datadoghq.com/help/).
 * [Monitor HAProxy with Datadog](https://www.datadoghq.com/blog/monitor-haproxy-with-datadog/)
 
 
+[0]: https://raw.githubusercontent.com/DataDog/integrations-core/39f2cb0977c0e0446a0e905d15d2e9a4349b3b5d/haproxy/images/haproxy-dash.png
 [1]: https://app.datadoghq.com/account/settings#agent
 [2]: https://www.datadoghq.com/blog/how-to-collect-haproxy-metrics/
 [3]: https://www.haproxy.org/download/1.7/doc/management.txt
@@ -127,4 +129,4 @@ Need help? Contact [Datadog Support](http://docs.datadoghq.com/help/).
 [10]: https://www.datadoghq.com/blog/monitoring-haproxy-performance-metrics/
 [11]: https://www.datadoghq.com/blog/monitor-haproxy-with-datadog/
 [12]: #metric-collection
-[13]: #log-collection
+[13]: #metrics

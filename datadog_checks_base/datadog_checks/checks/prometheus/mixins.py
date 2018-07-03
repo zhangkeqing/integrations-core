@@ -152,6 +152,9 @@ class PrometheusScraperMixin(object):
         # INTERNAL FEATURE, might be removed in future versions
         self._text_filter_blacklist = []
 
+        # Timeout used during the network request
+        self.prometheus_timeout = 10
+
     def parse_metric_family(self, response):
         """
         Parse the MetricFamily from a valid requests.Response object to provide a MetricFamily object (see [0])
@@ -503,7 +506,7 @@ class PrometheusScraperMixin(object):
             disable_warnings(InsecureRequestWarning)
             verify = False
         try:
-            response = requests.get(endpoint, headers=headers, stream=True, timeout=10, cert=cert, verify=verify)
+            response = requests.get(endpoint, headers=headers, stream=False, timeout=self.prometheus_timeout, cert=cert, verify=verify)
         except requests.exceptions.SSLError:
             self.log.error("Invalid SSL settings for requesting {} endpoint".format(endpoint))
             raise
@@ -647,3 +650,7 @@ class PrometheusScraperMixin(object):
 
     def _is_value_valid(self, val):
         return not (isnan(val) or isinf(val))
+
+    def set_prometheus_timeout(self, instance, default_value=10):
+        """ extract `prometheus_timeout` directly from the instance configuration """
+        self.prometheus_timeout = instance.get('prometheus_timeout', default_value)

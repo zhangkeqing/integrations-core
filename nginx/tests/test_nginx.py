@@ -2,18 +2,14 @@
 # All rights reserved
 # Licensed under a 3-clause BSD style license (see LICENSE)
 import os
-import sys
 import json
-import subprocess
-import time
 
 import mock
 import pytest
 import requests
 
-from datadog_checks.stubs import aggregator as _aggregator
+from datadog_checks.dev import docker_run, get_docker_hostname
 from datadog_checks.nginx import Nginx, VTS_METRIC_MAP
-from datadog_checks.utils.common import get_docker_hostname
 
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -22,58 +18,28 @@ FIXTURES_PATH = os.path.join(HERE, 'fixtures')
 NGINX_HOST = get_docker_hostname()
 NGINX_PORT = '8080'
 NGINX_PORT_SSL = '8081'
+NGINX_STATUS_URL = 'http://{}:{}/nginx_status'.format(NGINX_HOST, NGINX_PORT)
 TAGS = ['foo', 'bar']
-
-DOCKER_COMPOSE_ARGS = [
-    "docker-compose",
-    "-f", os.path.join(HERE, 'docker', 'docker-compose.yaml')
-]
 
 
 @pytest.fixture(scope="session")
 def nginx():
-    env = os.environ
-    env['NGINX_CONFIG_FOLDER'] = os.path.join(HERE, 'docker', 'nginx')
-
-    start_nginx(env)
-    yield
-    subprocess.check_call(DOCKER_COMPOSE_ARGS + ["down"], env=env)
+    with docker_run(
+        os.path.join(HERE, 'docker', 'docker-compose.yaml'),
+        endpoints=[NGINX_STATUS_URL],
+        env_vars={'NGINX_CONFIG_FOLDER': os.path.join(HERE, 'docker', 'nginx')}
+    ):
+        yield
 
 
 @pytest.fixture(scope="session")
 def nginx_vts():
-    env = os.environ
-    env['NGINX_CONFIG_FOLDER'] = os.path.join(HERE, 'nginx_vts')
-
-    start_nginx(env)
-    yield
-    subprocess.check_call(DOCKER_COMPOSE_ARGS + ["down"], env=env)
-
-
-def start_nginx(env):
-    subprocess.check_call(DOCKER_COMPOSE_ARGS + ["up", "-d"], env=env)
-
-    sys.stderr.write("Waiting for NGINX to boot...")
-
-    attempts = 1
-    while True:
-        if attempts >= 10:
-            subprocess.check_call(DOCKER_COMPOSE_ARGS + ["down"], env=env)
-            raise Exception("NGINX failed to boot...")
-
-        try:
-            res = requests.get('http://{}:{}/nginx_status'.format(NGINX_HOST, NGINX_PORT))
-            res.raise_for_status
-            break
-        except Exception:
-            attempts += 1
-            time.sleep(1)
-
-
-@pytest.fixture
-def aggregator():
-    _aggregator.reset()
-    return _aggregator
+    with docker_run(
+        os.path.join(HERE, 'docker', 'docker-compose.yaml'),
+        endpoints=[NGINX_STATUS_URL],
+        env_vars={'NGINX_CONFIG_FOLDER': os.path.join(HERE, 'nginx_vts')}
+    ):
+        yield
 
 
 @pytest.fixture

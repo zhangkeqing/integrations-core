@@ -206,7 +206,7 @@ class KubernetesState(PrometheusCheck):
         for job_tags, job_count in self.job_failed_count.iteritems():
             self.monotonic_count(self.NAMESPACE + '.job.failed', job_count, list(job_tags))
 
-    def _condition_to_service_check(self, metric, sc_name, mapping, tags=None):
+    def _condition_to_service_check(self, sample, sc_name, mapping, tags=None):
         """
         Some metrics contains conditions, labels that have "condition" as name and "true", "false", or "unknown"
         as value. The metric value is expected to be a gauge equal to 0 or 1 in this case.
@@ -222,16 +222,16 @@ class KubernetesState(PrometheusCheck):
         This function evaluates metrics containing conditions and sends a service check
         based on a provided condition->check mapping dict
         """
-        if bool(metric.gauge.value) is False:
+        if bool(sample[self.SAMPLE_VALUE]) is False:
             return  # Ignore if gauge is not 1
-        for label in metric.label:
-            if label.name == 'condition':
-                if label.value in mapping:
-                    self.service_check(sc_name, mapping[label.value], tags=tags)
+        for label_name, label_value in sample[self.SAMPLE_LABELS].iteritems():
+            if label_name == 'condition':
+                if label_value in mapping:
+                    self.service_check(sc_name, mapping[label_value], tags=tags)
                 else:
-                    self.log.debug("Unable to handle %s - unknown condition %s" % (sc_name, label.value))
+                    self.log.debug("Unable to handle %s - unknown condition %s" % (sc_name, label_value))
 
-    def _condition_to_tag_check(self, metric, base_sc_name, mapping, tags=None):
+    def _condition_to_tag_check(self, sample, base_sc_name, mapping, tags=None):
         """
         Metrics from kube-state-metrics have changed
         For example:
@@ -247,19 +247,19 @@ class KubernetesState(PrometheusCheck):
         This function evaluates metrics containing conditions and sends a service check
         based on a provided condition->check mapping dict
         """
-        if bool(metric.gauge.value) is False:
+        if bool(sample[self.SAMPLE_VALUE]) is False:
             return  # Ignore if gauge is not 1 and we are not processing the pod phase check
 
-        label_value, condition_map = self._get_metric_condition_map(base_sc_name, metric.label)
+        label_value, condition_map = self._get_metric_condition_map(base_sc_name, sample[self.SAMPLE_LABELS])
         service_check_name = condition_map['service_check_name']
         mapping = condition_map['mapping']
 
         if base_sc_name == 'kubernetes_state.pod.phase':
-            message = "{} is currently reporting {}".format(self._label_to_tag('pod', metric.label),
-                                                            self._label_to_tag('phase', metric.label))
+            message = "{} is currently reporting {}".format(self._label_to_tag('pod', sample[self.SAMPLE_LABELS]),
+                                                            self._label_to_tag('phase', sample[self.SAMPLE_LABELS]))
         else:
-            message = "{} is currently reporting {}".format(self._label_to_tag('node', metric.label),
-                                                            self._label_to_tag('condition', metric.label))
+            message = "{} is currently reporting {}".format(self._label_to_tag('node', sample[self.SAMPLE_LABELS]),
+                                                            self._label_to_tag('condition', sample[self.SAMPLE_LABELS]))
 
         if condition_map['service_check_name'] is None:
             self.log.debug("Unable to handle {} - unknown condition {}".format(service_check_name, label_value))
@@ -291,24 +291,9 @@ class KubernetesState(PrometheusCheck):
                     'mapping': self.condition_to_status_negative
                 }
             }
-            label_value = self._extract_label_value('status', labels)
-            return label_value, switch.get(self._extract_label_value('condition', labels),
-                                           {'service_check_name': None, 'mapping': None})
-
+            return labels['status'], switch.get(labels['condition'], {'service_check_name': None, 'mapping': None})
         elif base_sc_name == 'kubernetes_state.pod.phase':
-            label_value = self._extract_label_value('phase', labels)
-            return label_value, {'service_check_name': base_sc_name, 'mapping': self.pod_phase_to_status}
-
-    def _extract_label_value(self, name, labels):
-        """
-        Search for `name` in labels name and returns
-        corresponding value.
-        Returns None if name was not found.
-        """
-        for label in labels:
-            if label.name == name:
-                return label.value
-        return None
+            return labels['phase'], {'service_check_name': base_sc_name, 'mapping': self.pod_phase_to_status}
 
     def _format_tag(self, name, value):
         """
@@ -323,7 +308,7 @@ class KubernetesState(PrometheusCheck):
         Tag name is label name if not specified.
         Returns None if name was not found.
         """
-        value = self._extract_label_value(name, labels)
+        value = labels[name]
         if value:
             return self._format_tag(tag_name or name, value)
         else:
@@ -341,7 +326,7 @@ class KubernetesState(PrometheusCheck):
     # From the phase the check will update its status
     # Also submits as an aggregated count with minimal tags so it is
     # visualisable over time per namespace and phase
-    def kube_pod_status_phase(self, message, **kwargs):
+    def kube_pod_status_phase(self, metric, **kwargs):
         """ Phase a pod is in. """
         metric_name = self.NAMESPACE + '.pod.status_phase'
         # Will submit a service check which status is given by its phase.
@@ -349,207 +334,205 @@ class KubernetesState(PrometheusCheck):
         check_basename = self.NAMESPACE + '.pod.phase'
         status_phase_counter = Counter()
 
-        for metric in message.metric:
-            self._condition_to_tag_check(metric, check_basename, self.pod_phase_to_status,
-                                         tags=[self._label_to_tag("pod", metric.label),
-                                               self._label_to_tag("namespace", metric.label)] + self.custom_tags)
+        for sample in metric.samples:
+            self._condition_to_tag_check(sample, check_basename, self.pod_phase_to_status,
+                                         tags=[self._label_to_tag("pod", sample[self.SAMPLE_LABELS]),
+                                               self._label_to_tag("namespace", sample[self.SAMPLE_LABELS])] + self.custom_tags)
 
             # Counts aggregated cluster-wide to avoid no-data issues on pod churn,
             # pod granularity available in the service checks
             tags = [
-                self._label_to_tag("namespace", metric.label),
-                self._label_to_tag("phase", metric.label)
+                self._label_to_tag("namespace", sample[self.SAMPLE_LABELS]),
+                self._label_to_tag("phase", sample[self.SAMPLE_LABELS])
             ] + self.custom_tags
-            status_phase_counter[tuple(sorted(tags))] += metric.gauge.value
+            status_phase_counter[tuple(sorted(tags))] += sample[self.SAMPLE_VALUE]
 
         for tags, count in status_phase_counter.iteritems():
             self.gauge(metric_name, count, tags=list(tags))
 
-    def kube_pod_container_status_waiting_reason(self, message, **kwargs):
+    def kube_pod_container_status_waiting_reason(self, metric, **kwargs):
         metric_name = self.NAMESPACE + '.container.status_report.count.waiting'
-        for metric in message.metric:
+        for sample in metric.samples:
             tags = []
             skip_metric = False
-            for label in metric.label:
-                if label.name == "reason":
-                    if label.value.lower() in WHITELISTED_WAITING_REASONS:
-                        tags.append(self._format_tag(label.name, label.value))
-                    else:
-                        skip_metric = True
-                elif label.name == "container":
-                    tags.append(self._format_tag("kube_container_name", label.value))
-                elif label.name == "namespace":
-                    tags.append(self._format_tag(label.name, label.value))
+            if "reason" in sample[self.SAMPLE_LABELS]:
+                if sample[self.SAMPLE_LABELS]["reason"].lower() in WHITELISTED_WAITING_REASONS:
+                    tags.append(self._format_tag("reason", sample[self.SAMPLE_LABELS]["reason"]))
+                else:
+                    skip_metric = True
+            elif "container" in sample[self.SAMPLE_LABELS]:
+                tags.append(self._format_tag("kube_container_name", sample[self.SAMPLE_LABELS]["container"]))
+            elif "namespace" in sample[self.SAMPLE_LABELS]:
+                tags.append(self._format_tag("namespace", sample[self.SAMPLE_LABELS]["namespace"]))
             if not skip_metric:
-                self.count(metric_name, metric.gauge.value, tags + self.custom_tags)
+                self.count(metric_name, sample[self.SAMPLE_VALUE], tags + self.custom_tags)
 
-    def kube_pod_container_status_terminated_reason(self, message, **kwargs):
+    def kube_pod_container_status_terminated_reason(self, metric, **kwargs):
         metric_name = self.NAMESPACE + '.container.status_report.count.terminated'
-        for metric in message.metric:
+        for sample in metric.samples:
             tags = []
             skip_metric = False
-            for label in metric.label:
-                if label.name == "reason":
-                    if label.value.lower() in WHITELISTED_TERMINATED_REASONS:
-                        tags.append(self._format_tag(label.name, label.value))
-                    else:
-                        skip_metric = True
-                elif label.name == "container":
-                    tags.append(self._format_tag("kube_container_name", label.value))
-                elif label.name == "namespace":
-                    tags.append(self._format_tag(label.name, label.value))
+            if "reason" in sample[self.SAMPLE_LABELS]:
+                if sample[self.SAMPLE_LABELS]["reason"].lower() in WHITELISTED_TERMINATED_REASONS:
+                    tags.append(self._format_tag("reason", sample[self.SAMPLE_LABELS]["reason"]))
+                else:
+                    skip_metric = True
+            elif "container" in sample[self.SAMPLE_LABELS]:
+                tags.append(self._format_tag("kube_container_name", sample[self.SAMPLE_LABELS]["container"]))
+            elif "namespace" in sample[self.SAMPLE_LABELS]:
+                tags.append(self._format_tag("namespace", sample[self.SAMPLE_LABELS]["namespace"]))
             if not skip_metric:
-                self.count(metric_name, metric.gauge.value, tags + self.custom_tags)
+                self.count(metric_name, sample[self.SAMPLE_VALUE], tags + self.custom_tags)
 
-    def kube_cronjob_next_schedule_time(self, message, **kwargs):
+    def kube_cronjob_next_schedule_time(self, metric, **kwargs):
         """ Time until the next schedule """
         # Used as a service check so that one can be alerted if the cronjob's next schedule is in the past
         check_basename = self.NAMESPACE + '.cronjob.on_schedule_check'
         curr_time = int(time.time())
-        for metric in message.metric:
-            on_schedule = int(metric.gauge.value) - curr_time
-            tags = [self._format_tag(label.name, label.value) for label in metric.label] + self.custom_tags
+        for sample in metric.samples:
+            on_schedule = sample[self.SAMPLE_VALUE] - curr_time
+            tags = [self._format_tag(label_name, label_value) for label_name, label_value in sample[self.SAMPLE_LABELS].iteritems()] + self.custom_tags
             if on_schedule < 0:
                 message = "The service check scheduled at {} is {} seconds late".format(
-                    time.strftime('%Y-%m-%d %H:%M:%S', time.gmtime(int(metric.gauge.value))), on_schedule
+                    time.strftime('%Y-%m-%d %H:%M:%S', time.gmtime(int(sample[self.SAMPLE_VALUE]))), on_schedule
                 )
                 self.service_check(check_basename, self.CRITICAL, tags=tags, message=message)
             else:
                 self.service_check(check_basename, self.OK, tags=tags)
 
-    def kube_job_complete(self, message, **kwargs):
+    def kube_job_complete(self, metric, **kwargs):
         service_check_name = self.NAMESPACE + '.job.complete'
-        for metric in message.metric:
+        for sample in metric.samples:
             tags = []
-            for label in metric.label:
-                if label.name == 'job':
-                    trimmed_job = self._trim_job_tag(label.value)
-                    tags.append(self._format_tag(label.name, trimmed_job))
+            for label_name, label_value in sample[self.SAMPLE_LABELS].iteritems():
+                if label_name == 'job':
+                    trimmed_job = self._trim_job_tag(label_value)
+                    tags.append(self._format_tag(label_name, trimmed_job))
                 else:
-                    tags.append(self._format_tag(label.name, label.value))
+                    tags.append(self._format_tag(label_name, label_value))
             self.service_check(service_check_name, self.OK, tags=tags + self.custom_tags)
 
-    def kube_job_failed(self, message, **kwargs):
+    def kube_job_failed(self, metric, **kwargs):
         service_check_name = self.NAMESPACE + '.job.complete'
-        for metric in message.metric:
+        for sample in metric.samples:
             tags = []
-            for label in metric.label:
-                if label.name == 'job':
-                    trimmed_job = self._trim_job_tag(label.value)
-                    tags.append(self._format_tag(label.name, trimmed_job))
+            for label_name, label_value in sample[self.SAMPLE_LABELS].iteritems():
+                if label_name == 'job':
+                    trimmed_job = self._trim_job_tag(label_value)
+                    tags.append(self._format_tag(label_name, trimmed_job))
                 else:
-                    tags.append(self._format_tag(label.name, label.value))
+                    tags.append(self._format_tag(label_name, label_value))
             self.service_check(service_check_name, self.CRITICAL, tags=tags + self.custom_tags)
 
-    def kube_job_status_failed(self, message, **kwargs):
-        for metric in message.metric:
+    def kube_job_status_failed(self, metric, **kwargs):
+        for sample in metric.samples:
             tags = [] + self.custom_tags
-            for label in metric.label:
-                if label.name == 'job':
-                    trimmed_job = self._trim_job_tag(label.value)
-                    tags.append(self._format_tag(label.name, trimmed_job))
+            for label_name, label_value in sample[self.SAMPLE_LABELS].iteritems():
+                if label_name == 'job':
+                    trimmed_job = self._trim_job_tag(label_value)
+                    tags.append(self._format_tag(label_name, trimmed_job))
                 else:
-                    tags.append(self._format_tag(label.name, label.value))
-            self.job_failed_count[frozenset(tags)] += metric.gauge.value
+                    tags.append(self._format_tag(label_name, label_value))
+            self.job_failed_count[frozenset(tags)] += sample[self.SAMPLE_VALUE]
 
-    def kube_job_status_succeeded(self, message, **kwargs):
-        for metric in message.metric:
+    def kube_job_status_succeeded(self, metric, **kwargs):
+        for sample in metric.samples:
             tags = [] + self.custom_tags
-            for label in metric.label:
-                if label.name == 'job':
-                    trimmed_job = self._trim_job_tag(label.value)
-                    tags.append(self._format_tag(label.name, trimmed_job))
+            for label_name, label_value in sample[self.SAMPLE_LABELS].iteritems():
+                if label_name == 'job':
+                    trimmed_job = self._trim_job_tag(label_value)
+                    tags.append(self._format_tag(label_name, trimmed_job))
                 else:
-                    tags.append(self._format_tag(label.name, label.value))
-            self.job_succeeded_count[frozenset(tags)] += metric.gauge.value
+                    tags.append(self._format_tag(label_name, label_value))
+            self.job_succeeded_count[frozenset(tags)] += sample[self.SAMPLE_VALUE]
 
-    def kube_node_status_condition(self, message, **kwargs):
+    def kube_node_status_condition(self, metric, **kwargs):
         """ The ready status of a cluster node. v1.0+"""
         base_check_name = self.NAMESPACE + '.node'
         metric_name = self.NAMESPACE + '.nodes.by_condition'
         by_condition_counter = Counter()
 
-        for metric in message.metric:
-            self._condition_to_tag_check(metric, base_check_name, self.condition_to_status_positive,
-                                         tags=[self._label_to_tag("node", metric.label)] + self.custom_tags)
+        for sample in metric.samples:
+            self._condition_to_tag_check(sample, base_check_name, self.condition_to_status_positive,
+                                         tags=[self._label_to_tag("node", sample[self.SAMPLE_LABELS])] + self.custom_tags)
 
             # Counts aggregated cluster-wide to avoid no-data issues on node churn,
             # node granularity available in the service checks
             tags = [
-                self._label_to_tag("condition", metric.label),
-                self._label_to_tag("status", metric.label)
+                self._label_to_tag("condition", sample[self.SAMPLE_LABELS]),
+                self._label_to_tag("status", sample[self.SAMPLE_LABELS])
             ] + self.custom_tags
-            by_condition_counter[tuple(sorted(tags))] += metric.gauge.value
+            by_condition_counter[tuple(sorted(tags))] += sample[self.SAMPLE_VALUE]
 
         for tags, count in by_condition_counter.iteritems():
             self.gauge(metric_name, count, tags=list(tags))
 
-    def kube_node_status_ready(self, message, **kwargs):
+    def kube_node_status_ready(self, metric, **kwargs):
         """ The ready status of a cluster node (legacy)"""
         service_check_name = self.NAMESPACE + '.node.ready'
-        for metric in message.metric:
-            self._condition_to_service_check(metric, service_check_name, self.condition_to_status_positive,
-                                             tags=[self._label_to_tag("node", metric.label)] + self.custom_tags)
+        for sample in metric.samples:
+            self._condition_to_service_check(sample, service_check_name, self.condition_to_status_positive,
+                                             tags=[self._label_to_tag("node", sample[self.SAMPLE_LABELS])] + self.custom_tags)
 
-    def kube_node_status_out_of_disk(self, message, **kwargs):
+    def kube_node_status_out_of_disk(self, metric, **kwargs):
         """ Whether the node is out of disk space (legacy)"""
         service_check_name = self.NAMESPACE + '.node.out_of_disk'
-        for metric in message.metric:
-            self._condition_to_service_check(metric, service_check_name, self.condition_to_status_negative,
-                                             tags=[self._label_to_tag("node", metric.label)] + self.custom_tags)
+        for sample in metric.samples:
+            self._condition_to_service_check(sample, service_check_name, self.condition_to_status_negative,
+                                             tags=[self._label_to_tag("node", sample[self.SAMPLE_LABELS])] + self.custom_tags)
 
-    def kube_node_status_memory_pressure(self, message, **kwargs):
+    def kube_node_status_memory_pressure(self, metric, **kwargs):
         """ Whether the node is in a memory pressure state (legacy)"""
         service_check_name = self.NAMESPACE + '.node.memory_pressure'
-        for metric in message.metric:
-            self._condition_to_service_check(metric, service_check_name, self.condition_to_status_negative,
-                                             tags=[self._label_to_tag("node", metric.label)] + self.custom_tags)
+        for sample in metric.samples:
+            self._condition_to_service_check(sample, service_check_name, self.condition_to_status_negative,
+                                             tags=[self._label_to_tag("node", sample[self.SAMPLE_LABELS])] + self.custom_tags)
 
-    def kube_node_status_disk_pressure(self, message, **kwargs):
+    def kube_node_status_disk_pressure(self, metric, **kwargs):
         """ Whether the node is in a disk pressure state (legacy)"""
         service_check_name = self.NAMESPACE + '.node.disk_pressure'
-        for metric in message.metric:
-            self._condition_to_service_check(metric, service_check_name, self.condition_to_status_negative,
-                                             tags=[self._label_to_tag("node", metric.label)] + self.custom_tags)
+        for sample in metric.samples:
+            self._condition_to_service_check(sample, service_check_name, self.condition_to_status_negative,
+                                             tags=[self._label_to_tag("node", sample[self.SAMPLE_LABELS])] + self.custom_tags)
 
-    def kube_node_status_network_unavailable(self, message, **kwargs):
+    def kube_node_status_network_unavailable(self, metric, **kwargs):
         """ Whether the node is in a network unavailable state (legacy)"""
         service_check_name = self.NAMESPACE + '.node.network_unavailable'
-        for metric in message.metric:
-            self._condition_to_service_check(metric, service_check_name, self.condition_to_status_negative,
-                                             tags=[self._label_to_tag("node", metric.label)] + self.custom_tags)
+        for sample in metric.samples:
+            self._condition_to_service_check(sample, service_check_name, self.condition_to_status_negative,
+                                             tags=[self._label_to_tag("node", sample[self.SAMPLE_LABELS])] + self.custom_tags)
 
-    def kube_node_spec_unschedulable(self, message, **kwargs):
+    def kube_node_spec_unschedulable(self, metric, **kwargs):
         """ Whether a node can schedule new pods. """
         metric_name = self.NAMESPACE + '.node.status'
         statuses = ('schedulable', 'unschedulable')
-        if message.type < len(METRIC_TYPES):
-            for metric in message.metric:
-                tags = [self._format_tag(label.name, label.value) for label in metric.label] + self.custom_tags
-                status = statuses[int(getattr(metric, METRIC_TYPES[message.type]).value)]  # value can be 0 or 1
+        if metric.type in METRIC_TYPES:
+            for sample in metric.samples:
+                tags = [self._format_tag(label_name, label_value) for label_name, label_value in sample[self.SAMPLE_LABELS]] + self.custom_tags
+                status = statuses[int(sample[self.SAMPLE_VALUE])]  # value can be 0 or 1
                 tags.append(self._format_tag('status', status))
                 self.gauge(metric_name, 1, tags)  # metric value is always one, value is on the tags
         else:
-            self.log.error("Metric type %s unsupported for metric %s" % (message.type, message.name))
+            self.log.error("Metric type %s unsupported for metric %s" % (metric.type, metric.name))
 
-    def kube_resourcequota(self, message, **kwargs):
+    def kube_resourcequota(self, metric, **kwargs):
         """ Quota and current usage by resource type. """
         metric_base_name = self.NAMESPACE + '.resourcequota.{}.{}'
         suffixes = {'used': 'used', 'hard': 'limit'}
-        if message.type < len(METRIC_TYPES):
-            for metric in message.metric:
-                mtype = self._extract_label_value("type", metric.label)
-                resource = self._extract_label_value("resource", metric.label)
+        if metric.type in METRIC_TYPES:
+            for sample in metric.samples:
+                mtype = self._extract_label_value("type", sample[self.SAMPLE_LABELS])
+                resource = self._extract_label_value("resource", sample[self.SAMPLE_LABELS])
                 tags = [
-                    self._label_to_tag("namespace", metric.label),
-                    self._label_to_tag("resourcequota", metric.label)
+                    self._label_to_tag("namespace", sample[self.SAMPLE_LABELS]),
+                    self._label_to_tag("resourcequota", sample[self.SAMPLE_LABELS])
                 ] + self.custom_tags
-                val = getattr(metric, METRIC_TYPES[message.type]).value
+                val = sample[self.SAMPLE_VALUE]
                 self.gauge(metric_base_name.format(resource, suffixes[mtype]), val, tags)
         else:
-            self.log.error("Metric type %s unsupported for metric %s" % (message.type, message.name))
+            self.log.error("Metric type %s unsupported for metric %s" % (metric.type, metric.name))
 
-    def kube_limitrange(self, message, **kwargs):
+    def kube_limitrange(self, metric, **kwargs):
         """ Resource limits by consumer type. """
         # type's cardinality's low: https://github.com/kubernetes/kubernetes/blob/v1.6.1/pkg/api/v1/types.go#L3872-L3879
         # idem for resource: https://github.com/kubernetes/kubernetes/blob/v1.6.1/pkg/api/v1/types.go#L3342-L3352
@@ -563,21 +546,21 @@ class KubernetesState(PrometheusCheck):
             'maxLimitRequestRatio': 'max_limit_request_ratio',
         }
 
-        if message.type < len(METRIC_TYPES):
-            for metric in message.metric:
-                constraint = self._extract_label_value("constraint", metric.label)
+        if metric.type in METRIC_TYPES:
+            for sample in metric.samples:
+                constraint = sample[self.SAMPLE_LABELS]["constraint"]
                 if constraint in constraints:
                     constraint = constraints[constraint]
                 else:
-                    self.error("Constraint %s unsupported for metric %s" % (constraint, message.name))
+                    self.error("Constraint %s unsupported for metric %s" % (constraint, metric.name))
                     continue
-                resource = self._extract_label_value("resource", metric.label)
+                resource = sample[self.SAMPLE_LABELS]["resource"]
                 tags = [
-                    self._label_to_tag("namespace", metric.label),
-                    self._label_to_tag("limitrange", metric.label),
-                    self._label_to_tag("type", metric.label, tag_name="consumer_type")
+                    self._label_to_tag("namespace", sample[self.SAMPLE_LABELS]),
+                    self._label_to_tag("limitrange", sample[self.SAMPLE_LABELS]),
+                    self._label_to_tag("type", sample[self.SAMPLE_LABELS], tag_name="consumer_type")
                 ] + self.custom_tags
-                val = getattr(metric, METRIC_TYPES[message.type]).value
+                val = sample[self.SAMPLE_VALUE]
                 self.gauge(metric_base_name.format(resource, constraint), val, tags)
         else:
-            self.log.error("Metric type %s unsupported for metric %s" % (message.type, message.name))
+            self.log.error("Metric type %s unsupported for metric %s" % (metric.type, metric.name))

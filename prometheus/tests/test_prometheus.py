@@ -6,7 +6,7 @@ import pytest
 import mock
 
 # 3p
-from prometheus_client import generate_latest, CollectorRegistry, Gauge, Counter
+from prometheus_client import generate_latest, CollectorRegistry, Gauge, Counter, Histogram, Summary
 
 # project
 from datadog_checks.prometheus import PrometheusCheck
@@ -45,6 +45,10 @@ def poll_mock():
     c1.labels(node="host2").inc(42)
     g3 = Gauge('metric3', 'memory usage', ['matched_label', 'node', 'timestamp'], registry=registry)
     g3.labels(matched_label="foobar", node="host2", timestamp="456").set(float('inf'))
+    h1 = Histogram('metric4', 'request latency histogram', registry=registry, buckets=(1.0, 5.0, float("inf")))
+    h1.observe(4.7)
+    s1 = Summary('metric5', 'request latency summary', registry=registry)
+    s1.observe(0.5)
 
     poll_mock = mock.patch(
         'requests.get',
@@ -111,6 +115,13 @@ def test_prometheus_wildcard(aggregator, poll_mock):
     c.check(instance)
     aggregator.assert_metric(CHECK_NAME + '.metric1', tags=['node:host1', 'flavor:test', 'matched_label:foobar'], metric_type=aggregator.GAUGE)
     aggregator.assert_metric(CHECK_NAME + '.metric2', tags=['timestamp:123', 'node:host2', 'matched_label:foobar'], metric_type=aggregator.GAUGE)
+    aggregator.assert_metric(CHECK_NAME + '.metric4.sum', tags=[], metric_type=aggregator.GAUGE)
+    aggregator.assert_metric(CHECK_NAME + '.metric4.count', tags=[], metric_type=aggregator.GAUGE)
+    aggregator.assert_metric(CHECK_NAME + '.metric4.count', tags=["upper_bound:1.0"], metric_type=aggregator.GAUGE)
+    aggregator.assert_metric(CHECK_NAME + '.metric4.count', tags=["upper_bound:5.0"], metric_type=aggregator.GAUGE)
+    aggregator.assert_metric(CHECK_NAME + '.metric4.count', tags=["upper_bound:+Inf"], metric_type=aggregator.GAUGE)
+    aggregator.assert_metric(CHECK_NAME + '.metric5.sum', tags=[], metric_type=aggregator.GAUGE)
+    aggregator.assert_metric(CHECK_NAME + '.metric5.count', tags=[], metric_type=aggregator.GAUGE)
     assert aggregator.metrics_asserted_pct == 100.0
 
 def test_prometheus_default_instance(aggregator, poll_mock):
@@ -137,7 +148,7 @@ def test_prometheus_default_instance(aggregator, poll_mock):
 
 def test_prometheus_mixed_instance(aggregator, poll_mock):
     """
-    Testing prometheus with default instance
+    Testing prometheus with a mixed of custom and default instance
     """
 
     c = PrometheusCheck(CHECK_NAME, None, {}, [], default_instances={
@@ -181,5 +192,5 @@ def test_prometheus_mixed_instance(aggregator, poll_mock):
             'tags': ['extra:foo']
         })
     aggregator.assert_metric(CHECK_NAME + '.renamed.metric1', hostname="host1", tags=['node:host1', 'flavor:test', 'matched_label:foobar', 'timestamp:123', 'extra:foo'], metric_type=aggregator.GAUGE)
-    aggregator.assert_metric(CHECK_NAME + '.metric2', hostname="host2", tags=['timestamp:123', 'node:host2', 'matched_label:foobar', 'timestamp:123', 'extra:foo'], metric_type=aggregator.GAUGE)
+    aggregator.assert_metric(CHECK_NAME + '.metric2', hostname="host2", tags=['timestamp:123', 'node:host2', 'matched_label:foobar', 'extra:foo'], metric_type=aggregator.GAUGE)
     assert aggregator.metrics_asserted_pct == 100.0

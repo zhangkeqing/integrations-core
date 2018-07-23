@@ -18,7 +18,7 @@ class PrometheusScraper(PrometheusScraperMixin):
         super(PrometheusScraper, self).__init__()
         self.check = check
 
-    def _submit_rate(self, metric_name, val, metric, custom_tags=None, hostname=None):
+    def _submit_rate(self, metric_name, val, sample, custom_tags=None, hostname=None):
         """
         Submit a metric as a rate, additional tags provided will be added to
         the ones from the label provided via the metrics object.
@@ -26,11 +26,11 @@ class PrometheusScraper(PrometheusScraperMixin):
         `custom_tags` is an array of 'tag:value' that will be added to the
         metric when sending the rate to Datadog.
         """
-        _tags = self._metric_tags(metric_name, val, metric, custom_tags, hostname)
+        _tags = self._metric_tags(metric_name, val, sample, custom_tags, hostname)
         self.check.rate('{}.{}'.format(self.NAMESPACE, metric_name), val, _tags, hostname=hostname)
 
 
-    def _submit_gauge(self, metric_name, val, metric, custom_tags=None, hostname=None):
+    def _submit_gauge(self, metric_name, val, sample, custom_tags=None, hostname=None):
         """
         Submit a metric as a gauge, additional tags provided will be added to
         the ones from the label provided via the metrics object.
@@ -38,10 +38,10 @@ class PrometheusScraper(PrometheusScraperMixin):
         `custom_tags` is an array of 'tag:value' that will be added to the
         metric when sending the gauge to Datadog.
         """
-        _tags = self._metric_tags(metric_name, val, metric, custom_tags, hostname)
+        _tags = self._metric_tags(metric_name, val, sample, custom_tags, hostname)
         self.check.gauge('{}.{}'.format(self.NAMESPACE, metric_name), val, _tags, hostname=hostname)
 
-    def _submit_monotonic_count(self, metric_name, val, metric, custom_tags=None, hostname=None):
+    def _submit_monotonic_count(self, metric_name, val, sample, custom_tags=None, hostname=None):
         """
         Submit a metric as a monotonic count, additional tags provided will be added to
         the ones from the label provided via the metrics object.
@@ -50,20 +50,22 @@ class PrometheusScraper(PrometheusScraperMixin):
         metric when sending the monotonic count to Datadog.
         """
 
-        _tags = self._metric_tags(metric_name, val, metric, custom_tags, hostname)
+        _tags = self._metric_tags(metric_name, val, sample, custom_tags, hostname)
         self.check.monotonic_count('{}.{}'.format(self.NAMESPACE, metric_name), val, _tags, hostname=hostname)
 
-    def _metric_tags(self, metric_name, val, metric, custom_tags=None, hostname=None):
+    def _metric_tags(self, metric_name, val, sample, custom_tags=None, hostname=None):
         _tags = []
+        labels_mapper = {"le":"upper_bound"}
+        labels_mapper.update(self.labels_mapper)
         if custom_tags is not None:
             _tags += custom_tags
-        for label in metric.label:
-            if self.exclude_labels is None or label.name not in self.exclude_labels:
-                tag_name = label.name
-                if self.labels_mapper is not None and label.name in self.labels_mapper:
-                    tag_name = self.labels_mapper[label.name]
-                _tags.append('{}:{}'.format(tag_name, label.value))
-        return self._finalize_tags_to_submit(_tags, metric_name, val, metric, custom_tags=custom_tags, hostname=hostname)
+        for label_name, label_value in sample[1].iteritems():
+            if self.exclude_labels is None or label_name not in self.exclude_labels:
+                tag_name = label_name
+                if label_name in labels_mapper:
+                    tag_name = labels_mapper[label_name]
+                _tags.append('{}:{}'.format(tag_name, label_value))
+        return self._finalize_tags_to_submit(_tags, metric_name, val, sample, custom_tags=custom_tags, hostname=hostname)
 
     def _submit_service_check(self, *args, **kwargs):
         self.check.service_check(*args, **kwargs)

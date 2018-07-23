@@ -8,12 +8,8 @@ import pytest
 import mock
 import requests
 
-from datadog_checks.checks.prometheus import PrometheusCheck, UnknownFormatError
-from datadog_checks.utils.prometheus import parse_metric_family, metrics_pb2
-
-
-protobuf_content_type = 'application/vnd.google.protobuf; proto=io.prometheus.client.MetricFamily; encoding=delimited'
-
+from datadog_checks.checks.prometheus import PrometheusCheck
+from prometheus_client.core import GaugeMetricFamily, CounterMetricFamily, SummaryMetricFamily, HistogramMetricFamily
 
 class MockResponse:
     """
@@ -80,16 +76,6 @@ def ref_gauge():
 
 
 @pytest.fixture
-def bin_data():
-    f_name = os.path.join(os.path.dirname(__file__), 'fixtures', 'prometheus', 'protobuf.bin')
-    with open(f_name, 'rb') as f:
-        bin_data = f.read()
-        assert len(bin_data) == 51855
-
-    return bin_data
-
-
-@pytest.fixture
 def text_data():
     # Loading test text data
     f_name = os.path.join(os.path.dirname(__file__), 'fixtures', 'prometheus', 'metrics.txt')
@@ -100,46 +86,10 @@ def text_data():
     return text_data
 
 
-def test_parse_metric_family():
-    f_name = os.path.join(os.path.dirname(__file__), 'fixtures', 'prometheus', 'protobuf.bin')
-    with open(f_name, 'rb') as f:
-        data = f.read()
-        assert len(data) == 51855
-        messages = list(parse_metric_family(data))
-        assert len(messages) == 61
-        assert messages[-1].name == 'process_virtual_memory_bytes'
-
-
 def test_check(mocked_prometheus_check):
     """ Should not be implemented as it is the mother class """
     with pytest.raises(NotImplementedError):
         mocked_prometheus_check.check(None)
-
-
-def test_parse_metric_family_protobuf(bin_data, mocked_prometheus_check):
-    response = MockResponse(bin_data, protobuf_content_type)
-    check = mocked_prometheus_check
-
-    messages = list(check.parse_metric_family(response))
-
-    assert len(messages) == 61
-    assert messages[-1].name == 'process_virtual_memory_bytes'
-
-    # check type overriding is working
-    # original type:
-    assert messages[1].name == 'go_goroutines'
-    assert messages[1].type == 1  # gauge
-
-    # override the type:
-    check.type_overrides = {"go_goroutines": "summary"}
-
-    response = MockResponse(bin_data, protobuf_content_type)
-
-    messages = list(check.parse_metric_family(response))
-
-    assert len(messages) == 61
-    assert messages[1].name == 'go_goroutines'
-    assert messages[1].type == 2  # summary
 
 
 def test_parse_metric_family_text(text_data, mocked_prometheus_check):
@@ -226,60 +176,52 @@ def test_parse_metric_family_text(text_data, mocked_prometheus_check):
             _subh.cumulative_count = _data['buckets'][_b]
     assert _histo in messages
 
+# def test_process(bin_data, mocked_prometheus_check, ref_gauge):
+#     endpoint = "http://fake.endpoint:10055/metrics"
+#     check = mocked_prometheus_check
 
-def test_parse_metric_family_unsupported(bin_data, mocked_prometheus_check):
-    check = mocked_prometheus_check
-    with pytest.raises(UnknownFormatError):
-        response = MockResponse(bin_data, 'application/json')
-        list(check.parse_metric_family(response))
-
-
-def test_process(bin_data, mocked_prometheus_check, ref_gauge):
-    endpoint = "http://fake.endpoint:10055/metrics"
-    check = mocked_prometheus_check
-
-    check.poll = mock.MagicMock(return_value=MockResponse(bin_data, protobuf_content_type))
-    check.process_metric = mock.MagicMock()
-    check.process(endpoint, instance=None)
-    check.poll.assert_called_with(endpoint)
-    check.process_metric.assert_called_with(ref_gauge, instance=None)
+#     check.poll = mock.MagicMock(return_value=MockResponse(bin_data, protobuf_content_type))
+#     check.process_metric = mock.MagicMock()
+#     check.process(endpoint, instance=None)
+#     check.poll.assert_called_with(endpoint)
+#     check.process_metric.assert_called_with(ref_gauge, instance=None)
 
 
-def test_process_send_histograms_buckets(bin_data, mocked_prometheus_check, ref_gauge):
-    """ Checks that the send_histograms_buckets parameter is passed along """
-    endpoint = "http://fake.endpoint:10055/metrics"
-    check = mocked_prometheus_check
-    check.poll = mock.MagicMock(
-        return_value=MockResponse(bin_data, protobuf_content_type))
-    check.process_metric = mock.MagicMock()
-    check.process(endpoint, send_histograms_buckets=False, instance=None)
-    check.poll.assert_called_with(endpoint)
-    check.process_metric.assert_called_with(ref_gauge, instance=None, send_histograms_buckets=False)
+# def test_process_send_histograms_buckets(bin_data, mocked_prometheus_check, ref_gauge):
+#     """ Checks that the send_histograms_buckets parameter is passed along """
+#     endpoint = "http://fake.endpoint:10055/metrics"
+#     check = mocked_prometheus_check
+#     check.poll = mock.MagicMock(
+#         return_value=MockResponse(bin_data, protobuf_content_type))
+#     check.process_metric = mock.MagicMock()
+#     check.process(endpoint, send_histograms_buckets=False, instance=None)
+#     check.poll.assert_called_with(endpoint)
+#     check.process_metric.assert_called_with(ref_gauge, instance=None, send_histograms_buckets=False)
 
 
-def test_process_send_monotonic_counter(bin_data, mocked_prometheus_check, ref_gauge):
-    """ Checks that the send_monotonic_counter parameter is passed along """
-    endpoint = "http://fake.endpoint:10055/metrics"
-    check = mocked_prometheus_check
-    check.poll = mock.MagicMock(
-        return_value=MockResponse(bin_data, protobuf_content_type))
-    check.process_metric = mock.MagicMock()
-    check.process(endpoint, send_monotonic_counter=False, instance=None)
-    check.poll.assert_called_with(endpoint)
-    check.process_metric.assert_called_with(ref_gauge, instance=None, send_monotonic_counter=False)
+# def test_process_send_monotonic_counter(bin_data, mocked_prometheus_check, ref_gauge):
+#     """ Checks that the send_monotonic_counter parameter is passed along """
+#     endpoint = "http://fake.endpoint:10055/metrics"
+#     check = mocked_prometheus_check
+#     check.poll = mock.MagicMock(
+#         return_value=MockResponse(bin_data, protobuf_content_type))
+#     check.process_metric = mock.MagicMock()
+#     check.process(endpoint, send_monotonic_counter=False, instance=None)
+#     check.poll.assert_called_with(endpoint)
+#     check.process_metric.assert_called_with(ref_gauge, instance=None, send_monotonic_counter=False)
 
-def test_process_instance_with_tags(bin_data, mocked_prometheus_check, ref_gauge):
-    """ Checks that an instances with tags passes them as custom tag """
-    endpoint = "http://fake.endpoint:10055/metrics"
-    check = mocked_prometheus_check
-    check.poll = mock.MagicMock(
-        return_value=MockResponse(bin_data, protobuf_content_type))
-    check.process_metric = mock.MagicMock()
-    instance = {'endpoint': 'IgnoreMe', 'tags': ['tag1:tagValue1', 'tag2:tagValue2']}
-    check.process(endpoint, instance=instance)
-    check.poll.assert_called_with(endpoint)
-    check.process_metric.assert_called_with(ref_gauge, custom_tags=['tag1:tagValue1', 'tag2:tagValue2'],
-                                            instance=instance)
+# def test_process_instance_with_tags(bin_data, mocked_prometheus_check, ref_gauge):
+#     """ Checks that an instances with tags passes them as custom tag """
+#     endpoint = "http://fake.endpoint:10055/metrics"
+#     check = mocked_prometheus_check
+#     check.poll = mock.MagicMock(
+#         return_value=MockResponse(bin_data, protobuf_content_type))
+#     check.process_metric = mock.MagicMock()
+#     instance = {'endpoint': 'IgnoreMe', 'tags': ['tag1:tagValue1', 'tag2:tagValue2']}
+#     check.process(endpoint, instance=instance)
+#     check.poll.assert_called_with(endpoint)
+#     check.process_metric.assert_called_with(ref_gauge, custom_tags=['tag1:tagValue1', 'tag2:tagValue2'],
+#                                             instance=instance)
 
 
 def test_process_metric_gauge(mocked_prometheus_check, ref_gauge):
@@ -304,22 +246,6 @@ def test_process_metric_filtered(mocked_prometheus_check):
     check.log.debug.assert_called_with(
         "Unable to handle metric: process_start_time_seconds - error: 'PrometheusCheck' object has no attribute 'process_start_time_seconds'")
     check.gauge.assert_not_called()
-
-
-def test_poll_protobuf(mocked_prometheus_check, bin_data):
-    """ Tests poll using the protobuf format """
-    check = mocked_prometheus_check
-    mock_response = mock.MagicMock(
-        status_code=200,
-        content=bin_data,
-        headers={'Content-Type': protobuf_content_type})
-    p = mock.patch('requests.get', return_value=mock_response, __name__="get")
-    p.start()
-    response = check.poll("http://fake.endpoint:10055/metrics")
-    messages = list(check.parse_metric_family(response))
-    assert len(messages) == 61
-    assert messages[-1].name == 'process_virtual_memory_bytes'
-    p.stop()
 
 
 def test_poll_text_plain(mocked_prometheus_check, text_data):
@@ -458,46 +384,26 @@ def test_submit_gauge_with_exclude_labels(mocked_prometheus_check, ref_gauge):
 
 
 def test_submit_counter(mocked_prometheus_check):
-    _counter = metrics_pb2.MetricFamily()
-    _counter.name = 'my_counter'
-    _counter.help = 'Random counter'
-    _counter.type = 0  # COUNTER
-    _met = _counter.metric.add()
-    _met.counter.value = 42
+    _counter = CounterMetricFamily('my_counter', 'Random counter')
+    _counter.add_metric([], 42)
     check = mocked_prometheus_check
     check._submit('custom.counter', _counter)
     check.gauge.assert_called_with('prometheus.custom.counter', 42, [], hostname=None)
 
 
 def test_submits_summary(mocked_prometheus_check):
-    _sum = metrics_pb2.MetricFamily()
-    _sum.name = 'my_summary'
-    _sum.help = 'Random summary'
-    _sum.type = 2  # SUMMARY
-    _met = _sum.metric.add()
-    _met.summary.sample_count = 42
-    _met.summary.sample_sum = 3.14
-    _q1 = _met.summary.quantile.add()
-    _q1.quantile = 10.0
-    _q1.value = 3
-    _q2 = _met.summary.quantile.add()
-    _q2.quantile = 4.0
-    _q2.value = 5
+    _sum = SummaryMetricFamily('my_summary', 'Random summary', count_value=42, sum_value=3.14)
+    # TODO check quantile
     check = mocked_prometheus_check
     check._submit('custom.summary', _sum)
     check.gauge.assert_has_calls([
         mock.call('prometheus.custom.summary.count', 42, [], hostname=None),
         mock.call('prometheus.custom.summary.sum', 3.14, [], hostname=None),
-        mock.call('prometheus.custom.summary.quantile', 3, ['quantile:10.0'], hostname=None),
-        mock.call('prometheus.custom.summary.quantile', 5, ['quantile:4.0'], hostname=None)
     ])
 
 
 def test_submit_histogram(mocked_prometheus_check):
-    _histo = metrics_pb2.MetricFamily()
-    _histo.name = 'my_histogram'
-    _histo.help = 'Random histogram'
-    _histo.type = 4  # HISTOGRAM
+    _histo = HistogramMetricFamily('my_histogram', 'my_histogram')
     _met = _histo.metric.add()
     _met.histogram.sample_count = 42
     _met.histogram.sample_sum = 3.14
@@ -517,12 +423,8 @@ def test_submit_histogram(mocked_prometheus_check):
     ])
 
 def test_submit_rate(mocked_prometheus_check):
-    _rate = metrics_pb2.MetricFamily()
-    _rate.name = 'my_rate'
-    _rate.help = 'Random rate'
-    _rate.type = 1  # GAUGE
-    _met = _rate.metric.add()
-    _met.gauge.value = 42
+    _rate = GaugeMetricFamily('my_rate', 'Random rate')
+    _rate.add_metric([], 42)
     check = mocked_prometheus_check
     check.rate_metrics = ["my_rate"]
     check._submit('custom.rate', _rate)
@@ -585,11 +487,8 @@ def test_parse_one_gauge(p_check):
         "# TYPE etcd_server_has_leader gauge\n"
         "etcd_server_has_leader 1\n")
 
-    expected_etcd_metric = metrics_pb2.MetricFamily()
-    expected_etcd_metric.help = "Whether or not a leader exists. 1 is existence, 0 is not."
-    expected_etcd_metric.name = "etcd_server_has_leader"
-    expected_etcd_metric.type = 1
-    expected_etcd_metric.metric.add().gauge.value = 1
+    expected_etcd_metric = GaugeMetricFamily("etcd_server_has_leader", "Whether or not a leader exists. 1 is existence, 0 is not.")
+    expected_etcd_metric.add_metric([], 1)
 
     # Iter on the generator to get all metrics
     response = MockResponse(text_data, 'text/plain; version=0.0.4')
@@ -598,16 +497,6 @@ def test_parse_one_gauge(p_check):
 
     assert 1 == len(metrics)
     current_metric = metrics[0]
-    assert expected_etcd_metric == current_metric
-
-    # Remove the old metric and add a new one with a different value
-    expected_etcd_metric.metric.pop()
-    expected_etcd_metric.metric.add().gauge.value = 0
-    assert expected_etcd_metric != current_metric
-
-    # Re-add the expected value but as different type: it should works
-    expected_etcd_metric.metric.pop()
-    expected_etcd_metric.metric.add().gauge.value = 1.0
     assert expected_etcd_metric == current_metric
 
 
@@ -641,11 +530,6 @@ def test_parse_one_counter(p_check):
     assert 1 == len(metrics)
     current_metric = metrics[0]
     assert expected_etcd_metric == current_metric
-
-    # Remove the old metric and add a new one with a different value
-    expected_etcd_metric.metric.pop()
-    expected_etcd_metric.metric.add().counter.value = 18714
-    assert expected_etcd_metric != current_metric
 
 
 def test_parse_one_histograms_with_label(p_check):
@@ -1599,7 +1483,7 @@ def test_label_join_with_hostname(sorted_tags_check):
 @pytest.fixture()
 def mock_get():
     text_data = None
-    f_name = os.path.join(os.path.dirname(__file__), 'fixtures', 'prometheus', 'ksm.txt')
+    f_name = os.path.join(os.path.dirname(__file__), 'fixtures', 'prometheus', 'ksm_big.txt')
     with open(f_name, 'r') as f:
         text_data = f.read()
     mock_get = mock.patch(
@@ -1622,7 +1506,134 @@ def test_health_service_check_ok(mock_get):
     check.NAMESPACE = 'ksm'
     check.health_service_check = True
     check.service_check = mock.MagicMock()
+    check.metrics_mapper = {
+        'kube_daemonset_status_current_number_scheduled': 'daemonset.scheduled',
+        'kube_daemonset_status_desired_number_scheduled': 'daemonset.desired',
+        'kube_daemonset_status_number_misscheduled': 'daemonset.misscheduled',
+        'kube_daemonset_status_number_ready': 'daemonset.ready',
+        'kube_deployment_spec_paused': 'deployment.paused',
+        'kube_deployment_spec_replicas': 'deployment.replicas_desired',
+        'kube_deployment_spec_strategy_rollingupdate_max_unavailable': 'deployment.rollingupdate.max_unavailable',
+        'kube_deployment_status_replicas': 'deployment.replicas',
+        'kube_deployment_status_replicas_available': 'deployment.replicas_available',
+        'kube_deployment_status_replicas_unavailable': 'deployment.replicas_unavailable',
+        'kube_deployment_status_replicas_updated': 'deployment.replicas_updated',
+        'kube_hpa_spec_min_replicas': 'hpa.min_replicas',
+        'kube_hpa_spec_max_replicas': 'hpa.max_replicas',
+        'kube_hpa_status_desired_replicas': 'hpa.desired_replicas',
+        'kube_hpa_status_current_replicas': 'hpa.current_replicas',
+        'kube_node_status_allocatable_cpu_cores': 'node.cpu_allocatable',
+        'kube_node_status_allocatable_memory_bytes': 'node.memory_allocatable',
+        'kube_node_status_allocatable_pods': 'node.pods_allocatable',
+        'kube_node_status_capacity_cpu_cores': 'node.cpu_capacity',
+        'kube_node_status_capacity_memory_bytes': 'node.memory_capacity',
+        'kube_node_status_capacity_pods': 'node.pods_capacity',
+        'kube_node_status_allocatable_nvidia_gpu_cards': 'node.gpu.cards_allocatable',
+        'kube_node_status_capacity_nvidia_gpu_cards': 'node.gpu.cards_capacity',
+        'kube_pod_container_status_terminated': 'container.terminated',
+        'kube_pod_container_status_waiting': 'container.waiting',
+        'kube_persistentvolumeclaim_status_phase': 'persistentvolumeclaim.status',
+        'kube_pod_container_resource_limits_cpu_cores': 'container.cpu_limit',
+        'kube_pod_container_resource_limits_memory_bytes': 'container.memory_limit',
+        'kube_pod_container_resource_requests_cpu_cores': 'container.cpu_requested',
+        'kube_pod_container_resource_requests_memory_bytes': 'container.memory_requested',
+        'kube_pod_container_status_ready': 'container.ready',
+        'kube_pod_container_status_restarts': 'container.restarts', # up to kube-state-metrics 1.1.x
+        'kube_pod_container_status_restarts_total': 'container.restarts', # from kube-state-metrics 1.2.0
+        'kube_pod_container_status_running': 'container.running',
+        'kube_pod_container_resource_requests_nvidia_gpu_devices': 'container.gpu.request',
+        'kube_pod_container_resource_limits_nvidia_gpu_devices': 'container.gpu.limit',
+        'kube_pod_status_ready': 'pod.ready',
+        'kube_pod_status_scheduled': 'pod.scheduled',
+        'kube_replicaset_spec_replicas': 'replicaset.replicas_desired',
+        'kube_replicaset_status_fully_labeled_replicas': 'replicaset.fully_labeled_replicas',
+        'kube_replicaset_status_ready_replicas': 'replicaset.replicas_ready',
+        'kube_replicaset_status_replicas': 'replicaset.replicas',
+        'kube_replicationcontroller_spec_replicas': 'replicationcontroller.replicas_desired',
+        'kube_replicationcontroller_status_available_replicas': 'replicationcontroller.replicas_available',
+        'kube_replicationcontroller_status_fully_labeled_replicas': 'replicationcontroller.fully_labeled_replicas',
+        'kube_replicationcontroller_status_ready_replicas': 'replicationcontroller.replicas_ready',
+        'kube_replicationcontroller_status_replicas': 'replicationcontroller.replicas',
+        'kube_statefulset_replicas': 'statefulset.replicas_desired',
+        'kube_statefulset_status_replicas': 'statefulset.replicas',
+        'kube_statefulset_status_replicas_current': 'statefulset.replicas_current',
+        'kube_statefulset_status_replicas_ready': 'statefulset.replicas_ready',
+        'kube_statefulset_status_replicas_updated': 'statefulset.replicas_updated',
+    }
+
+    check.ignore_metrics = [
+        # _info, _labels and _created don't convey any metric
+        'kube_cronjob_info',
+        'kube_cronjob_created',
+        'kube_daemonset_created',
+        'kube_deployment_created',
+        'kube_deployment_labels',
+        'kube_job_created',
+        'kube_job_info',
+        'kube_limitrange_created',
+        'kube_namespace_created',
+        'kube_namespace_labels',
+        'kube_node_created',
+        'kube_node_info',
+        'kube_node_labels',
+        'kube_pod_created'
+        'kube_pod_container_info',
+        'kube_pod_info',
+        'kube_pod_owner',
+        'kube_pod_start_time',
+        'kube_pod_labels',
+        'kube_replicaset_created',
+        'kube_replicationcontroller_created',
+        'kube_resourcequota_created',
+        'kube_service_created',
+        'kube_service_info',
+        'kube_service_labels',
+        'kube_statefulset_labels',
+        'kube_statefulset_created',
+        # _generation metrics are more metadata than metrics, no real use case for now
+        'kube_daemonset_metadata_generation',
+        'kube_deployment_metadata_generation',
+        'kube_deployment_status_observed_generation',
+        'kube_replicaset_metadata_generation',
+        'kube_replicaset_status_observed_generation',
+        'kube_replicationcontroller_metadata_generation',
+        'kube_replicationcontroller_status_observed_generation',
+        'kube_statefulset_metadata_generation',
+        'kube_statefulset_status_observed_generation',
+        'kube_hpa_metadata_generation',
+        # kube_node_status_phase and kube_namespace_status_phase have no use case as a service check
+        'kube_namespace_status_phase',
+        'kube_node_status_phase',
+        # These CronJob and Job metrics need use cases to determine how do implement
+        'kube_cronjob_status_active',
+        'kube_cronjob_status_last_schedule_time',
+        'kube_cronjob_spec_suspend',
+        'kube_cronjob_spec_starting_deadline_seconds',
+        'kube_job_spec_active_dealine_seconds',
+        'kube_job_spec_completions',
+        'kube_job_spec_parallelism',
+        'kube_job_status_active',
+        'kube_job_status_completion_time',  # We could compute the duration=completion-start as a gauge
+        'kube_job_status_start_time',
+    ]
+
+    check.label_joins = {
+        'kube_pod_info': {
+            'label_to_match': 'pod',
+            'labels_to_get': ['node']
+        }
+    }
+    import cProfile, pstats, StringIO
+    pr = cProfile.Profile()
+    pr.enable()
     check.process("http://fake.endpoint:10055/metrics")
+    pr.disable()
+    s = StringIO.StringIO()
+    sortby = 'cumulative'
+    ps = pstats.Stats(pr, stream=s).sort_stats(sortby)
+    ps.print_stats()
+    print s.getvalue()
+    # assert False
     check.service_check.assert_called_with(
         "ksm.prometheus.health",
         PrometheusCheck.OK,

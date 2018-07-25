@@ -356,7 +356,7 @@ class NagiosEventLogTailer(NagiosTailer):
         d.update({'timestamp': timestamp,
                   'event_type': event_type,
                   'msg_title': msg_title,
-                  'source_type_name': 'NAGIOS'})
+                  'source_type_name': 'Nagios'})
 
 
         # if host is localhost, turn that into the internal host name

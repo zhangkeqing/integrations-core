@@ -1,7 +1,5 @@
 # Solr Check
 
-![Solr Graph][8]
-
 ## Overview
 
 The Solr check tracks the state and performance of a Solr cluster. It collects metrics like number of documents indexed, cache hits and evictions, average request times, average requests per second, and more.

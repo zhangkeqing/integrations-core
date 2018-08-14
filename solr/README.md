@@ -15,86 +15,9 @@ This check is JMX-based, so you'll need to enable JMX Remote on your Solr server
 
 ### Configuration
 
-Edit the `solr.d/conf.yaml` file, in the `conf.d/` folder at the root of your [Agent's configuration directory][9]. See the [sample solr.d/conf.yaml][3] for all available configuration options:
+Edit the `solr.d/conf.yaml` file, in the `conf.d/` folder at the root of your [Agent's configuration directory][9]. See the [sample solr.d/conf.yaml][3] for all available configuration options.
 
-```
-instances:
-  # location of tomcat
-  - host: localhost
-    port: 9999
-
-  # if tomcat requires authentication
-  #   user: <TOMCAT_USERNAME>
-  #   password: <TOMCAT_PASSWORD>
-
-init_config:
-  conf:
-    - include:
-      type: searcher
-      attribute:
-        maxDoc:
-          alias: solr.searcher.maxdoc
-          metric_type: gauge
-        numDocs:
-          alias: solr.searcher.numdocs
-          metric_type: gauge
-        warmupTime:
-          alias: solr.searcher.warmup
-          metric_type: gauge
-    - include:
-      id: org.apache.solr.search.FastLRUCache
-      attribute:
-        cumulative_lookups:
-          alias: solr.cache.lookups
-          metric_type: counter
-        cumulative_hits:
-          alias: solr.cache.hits
-          metric_type: counter
-        cumulative_inserts:
-          alias: solr.cache.inserts
-          metric_type: counter
-        cumulative_evictions:
-          alias: solr.cache.evictions
-          metric_type: counter
-    - include:
-      id: org.apache.solr.search.LRUCache
-      attribute:
-        cumulative_lookups:
-          alias: solr.cache.lookups
-          metric_type: counter
-        cumulative_hits:
-          alias: solr.cache.hits
-          metric_type: counter
-        cumulative_inserts:
-          alias: solr.cache.inserts
-          metric_type: counter
-        cumulative_evictions:
-          alias: solr.cache.evictions
-          metric_type: counter
-    - include:
-      id: org.apache.solr.handler.component.SearchHandler
-      attribute:
-        errors:
-          alias: solr.search_handler.errors
-          metric_type: counter
-        requests:
-          alias: solr.search_handler.requests
-          metric_type: counter
-        timeouts:
-          alias: solr.search_handler.timeouts
-          metric_type: counter
-        totalTime:
-          alias: solr.search_handler.time
-          metric_type: counter
-        avgTimePerRequest:
-          alias: solr.search_handler.avg_time_per_req
-          metric_type: gauge
-        avgRequestsPerSecond:
-          alias: solr.search_handler.avg_requests_per_sec
-          metric_type: gauge
-```
-
-Again, see the [JMX Check documentation][2] for a list of configuration options usable by all JMX-based checks. The page also describes how the Agent tags JMX metrics.
+See the [JMX Check documentation][2] for a list of configuration options usable by all JMX-based checks. The page also describes how the Agent tags JMX metrics.
 
 [Restart the Agent][4] to start sending Solr metrics to Datadog.
 

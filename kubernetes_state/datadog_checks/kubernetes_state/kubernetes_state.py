@@ -10,6 +10,13 @@ from datadog_checks.errors import CheckException
 from datadog_checks.checks.openmetrics import OpenMetricsBaseCheck
 from datadog_checks.config import is_affirmative
 
+try:
+    # this module is only available in agent 6
+    from datadog_agent import get_clustername
+except ImportError:
+    def get_clustername():
+        return ""
+
 
 METRIC_TYPES = ['counter', 'gauge']
 
@@ -244,6 +251,11 @@ class KubernetesState(OpenMetricsBaseCheck):
         instance['prometheus_url'] = endpoint
         instance['label_joins'].update(extra_labels)
         instance['label_to_hostname'] = 'node' if hostname_override else None
+
+        if hostname_override:
+            clustername = get_clustername()
+            if clustername != "" :
+                instance['label_to_hostname_suffix'] = "-" + clustername
 
         if 'labels_mapper' in instance and not isinstance(instance['labels_mapper'], dict):
                 self.log.warning("Option labels_mapper should be a dictionary for {}".format(endpoint))

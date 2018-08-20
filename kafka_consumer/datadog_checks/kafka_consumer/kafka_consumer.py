@@ -248,6 +248,10 @@ class KafkaCheck(AgentCheck):
             for partition, error_code, offsets in partitions:
                 if error_code == KAFKA_NO_ERROR:
                     highwater_offsets[(topic, partition)] = offsets[0]
+                    self.log.debug(
+                        "Found high watermark offset for topic %s, partition %s: %s",
+                        topic, partition, offsets[0]
+                    )
                     # Valid error codes:
                     # https://cwiki.apache.org/confluence/display/KAFKA/A+Guide+To+The+Kafka+Protocol#AGuideToTheKafkaProtocol-PossibleErrorCodes.2
                 elif error_code == KAFKA_UNKNOWN_ERROR:
@@ -298,6 +302,7 @@ class KafkaCheck(AgentCheck):
             if len(partitions) == 0:
                 partitions = cli.cluster.available_partitions_for_topic(topic)
             topics_to_fetch[topic].update(partitions)
+            self.log.debug("Adding topic %s, partitions %s to fetch high watermark offsets from", topic, partitions)
 
         leader_tp = defaultdict(lambda: defaultdict(set))
         for topic, partitions in topics_to_fetch.iteritems():
@@ -428,6 +433,10 @@ class KafkaCheck(AgentCheck):
                             consumer_offset = int(zk_conn.get(zk_path)[0])
                             key = (consumer_group, topic, partition)
                             zk_consumer_offsets[key] = consumer_offset
+                            self.log.debug(
+                                "Found offset for topic %s, partition %s in consumer_group %s from zookeeper: %s",
+                                topic, partition, consumer_group, consumer_offset
+                            )
                         except NoNodeError:
                             self.log.info('No zookeeper node at %s', zk_path)
                         except Exception:
@@ -463,6 +472,10 @@ class KafkaCheck(AgentCheck):
                     topics[topic].update([partition])
                     key = (consumer_group, topic, partition)
                     consumer_offsets[key] = offset
+                    self.log.debug(
+                        "Found offset for topic %s, partition %s in consumer_group %s from kafka: %s",
+                        topic, partition, consumer_group, offset
+                    )
             except Exception:
                 self.log.exception('Could not read consumer offsets from kafka.')
 
@@ -490,8 +503,15 @@ class KafkaCheck(AgentCheck):
             for (topic, partition_offsets) in response.topics:
                 for partition, offset, _, error_code in partition_offsets:
                     if error_code is not 0:
+                        self.log.debug(
+                            "Received error code %s reading offsets for topic %s, partition %s",
+                            error_code, topic, partition
+                        )
                         continue
                     consumer_offsets[(topic, partition)] = offset
+                    self.log.debug(
+                        "Successfully read consumer offset for topic %s, partition %s: %s", topic, partition, offset
+                    )
 
         return consumer_offsets
 

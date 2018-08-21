@@ -322,9 +322,12 @@ class KafkaCheck(AgentCheck):
                     for topic, partitions in tps.iteritems()])
 
             response = self._make_blocking_req(cli, request, node_id=node_id)
+            self.log.debug("Response received for high watermark offsets: %s", response)
             offsets, unled = self._process_highwater_offsets(request, instance, node_id, response)
             highwater_offsets.update(offsets)
             topic_partitions_without_a_leader.extend(unled)
+
+        self.log.debug("Unled partitions: %s", topic_partitions_without_a_leader)
 
         return highwater_offsets, list(set(topic_partitions_without_a_leader))
 

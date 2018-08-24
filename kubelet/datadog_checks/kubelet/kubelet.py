@@ -3,6 +3,7 @@
 # Licensed under Simplified BSD License (see LICENSE)
 
 # stdlib
+import gc
 import logging
 import re
 from urlparse import urljoin
@@ -58,7 +59,7 @@ class KubeletCheck(AgentCheck, CadvisorScraper):
 
     def __init__(self, name, init_config, agentConfig, instances=None):
         super(KubeletCheck, self).__init__(name, init_config, agentConfig, instances)
-
+        self.run_count = 0
         self.NAMESPACE = 'kubernetes'
 
         if instances is not None and len(instances) > 1:
@@ -80,6 +81,17 @@ class KubeletCheck(AgentCheck, CadvisorScraper):
         }
 
     def check(self, instance):
+        self.run_count += 1
+        if self.run_count == 10:
+            self.log.info("[DEBUG] GC triggering collection")
+            gc.collect()
+            self.run_count = 0
+        self.log.info("[DEBUG] GC enabled?: %s" % gc.isenabled())
+        self.log.info("[DEBUG] GC debug: %s" % gc.get_debug())
+        self.log.info("[DEBUG] GC threshold: %s, %s, %s" % gc.get_threshold())
+        self.log.info("[DEBUG] GC count: %s, %s, %s" % gc.get_count())
+        self.log.info("[DEBUG] GC objects tracked: %s" % len(gc.get_objects()))
+
         kubelet_conn_info = get_connection_info()
         endpoint = kubelet_conn_info.get('url')
         if endpoint is None:
@@ -187,7 +199,7 @@ class KubeletCheck(AgentCheck, CadvisorScraper):
             return pod_list
         except Exception as e:
             self.log.debug('failed to retrieve pod list from the kubelet at %s : %s'
-                           % (self.pod_list_url, str(e)))
+                            % (self.pod_list_url, str(e)))
             return None
 
     def _retrieve_node_spec(self):
@@ -236,7 +248,7 @@ class KubeletCheck(AgentCheck, CadvisorScraper):
         except Exception as e:
             self.log.warning('kubelet check %s failed: %s' % (url, str(e)))
             self.service_check(service_check_base, AgentCheck.CRITICAL,
-                               message='Kubelet check %s failed: %s' % (url, str(e)), tags=instance_tags)
+                                message='Kubelet check %s failed: %s' % (url, str(e)), tags=instance_tags)
         else:
             if is_ok:
                 self.service_check(service_check_base, AgentCheck.OK, tags=instance_tags)
@@ -313,10 +325,10 @@ class KubeletCheck(AgentCheck, CadvisorScraper):
         """
         Parse quantity allows to convert the value in the resources spec like:
         resources:
-          requests:
+            requests:
             cpu: "100m"
             memory": "200Mi"
-          limits:
+            limits:
             memory: "300Mi"
         :param string: str
         :return: float

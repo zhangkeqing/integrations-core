@@ -135,7 +135,7 @@ class KubeletCheck(AgentCheck, CadvisorScraper):
         self._report_container_spec_metrics(self.pod_list, self.instance_tags)
 
         if self.cadvisor_legacy_url:  # Legacy cAdvisor
-            self.log.debug('processing legacy cadvisor metrics')
+            self.log.info('processing legacy cadvisor metrics')
             self.process_cadvisor(
                 instance,
                 self.cadvisor_legacy_url,
@@ -143,7 +143,7 @@ class KubeletCheck(AgentCheck, CadvisorScraper):
                 self.container_filter
             )
         elif self.cadvisor_metrics_url:  # Prometheus
-            self.log.debug('processing cadvisor metrics')
+            self.log.info('processing cadvisor metrics')
             self.cadvisor_scraper.process(
                 self.cadvisor_metrics_url,
                 send_histograms_buckets=send_buckets,
@@ -153,7 +153,7 @@ class KubeletCheck(AgentCheck, CadvisorScraper):
             )
 
         if self.kubelet_metrics_url:  # Prometheus
-            self.log.debug('processing kubelet metrics')
+            self.log.info('processing kubelet metrics')
             self.kubelet_scraper.process(
                 self.kubelet_metrics_url,
                 send_histograms_buckets=send_buckets,
@@ -161,9 +161,17 @@ class KubeletCheck(AgentCheck, CadvisorScraper):
                 ignore_unmapped=True
             )
 
+        self.log.info('[DEBUG] metrics_mapper size: %s' % len(self.cadvisor_scraper.metrics_mapper))
+        self.log.info('[DEBUG] rate_metrics size: %s' % len(self.cadvisor_scraper.rate_metrics))
+        self.log.info('[DEBUG] _label_mapping size: %s' % len(self.cadvisor_scraper._label_mapping))
+        self.log.info('[DEBUG] _active_label_mapping size: %s' % len(self.cadvisor_scraper._active_label_mapping))
+        self.log.info('[DEBUG] _watched_labels size: %s' % len(self.cadvisor_scraper._watched_labels))
+        self.log.info('[DEBUG] fs_usage_bytes size: %s' % len(self.cadvisor_scraper.fs_usage_bytes))
+        self.log.info('[DEBUG] mem_usage_bytes size: %s' % len(self.cadvisor_scraper.mem_usage_bytes))
+
         # Free up memory
-        self.pod_list = None
         self.container_filter = None
+        self.pod_list = None
 
     def perform_kubelet_query(self, url, verbose=True, timeout=10):
         """

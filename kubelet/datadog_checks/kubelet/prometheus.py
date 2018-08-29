@@ -209,8 +209,8 @@ class CadvisorPrometheusScraper(PrometheusScraper):
         super(CadvisorPrometheusScraper, self).process(endpoint, **kwargs)
 
         # Free up memory
-        self.pod_list = None
         self.container_filter = None
+        self.pod_list = None
 
     @staticmethod
     def _sum_values_by_context(message, uid_from_labels):

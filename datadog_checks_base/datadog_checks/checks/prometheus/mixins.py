@@ -5,6 +5,7 @@
 from fnmatch import fnmatchcase
 import logging
 import requests
+from guppy import hpy; hp=hpy()
 from urllib3 import disable_warnings
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
 from collections import defaultdict
@@ -175,8 +176,10 @@ class PrometheusScraperMixin(object):
         :return: metrics_pb2.MetricFamily()
         """
         if 'application/vnd.google.protobuf' in response.headers['Content-Type']:
+            self.log.info('[DEBUG] parsing protobuf format for url %s' % response.request.url)
             n = 0
             buf = response.content
+            msgs = 0
             while n < len(buf):
                 msg_len, new_pos = _DecodeVarint32(buf, n)
                 n = new_pos
@@ -194,9 +197,12 @@ class PrometheusScraperMixin(object):
                         message.type = self.METRIC_TYPES.index(new_type)
                     else:
                         self.log.debug("type override %s for %s is not a valid type name" % (new_type, message.name))
+                msgs += 1
                 yield message
+            self.log.info('[DEBUG] messages len: %s' % msgs)
 
         elif 'text/plain' in response.headers['Content-Type']:
+            self.log.info('[DEBUG] parsing text format for url %s' % response.request.url)
             input_gen = response.iter_lines(chunk_size=self.REQUESTS_CHUNK_SIZE)
             if self._text_filter_blacklist:
                 input_gen = self._text_filter_input(input_gen)
@@ -226,6 +232,9 @@ class PrometheusScraperMixin(object):
             for _m in obj_map:
                 if _m in messages or (obj_map[_m] == 'histogram' and ('{}_bucket'.format(_m) in messages)):
                     yield self._extract_metric_from_map(_m, messages, obj_map, obj_help)
+            self.log.info('[DEBUG] messages len: %s' % len(messages))
+            self.log.info('[DEBUG] obj_map len: %s' % len(obj_map))
+            self.log.info('[DEBUG] obj_help len: %s' % len(obj_help))
         else:
             raise UnknownFormatError('Unsupported content-type provided: {}'.format(
                 response.headers['Content-Type']))
@@ -387,6 +396,13 @@ class PrometheusScraperMixin(object):
 
         for metric in self.scrape_metrics(endpoint):
             self.process_metric(metric, **kwargs)
+        if 'metrics/cadvisor' in endpoint:
+             self.log.info('[DEBUG] heap stats from prometheus (end):\n%s' % hp.heap())
+             self.log.info('[DEBUG] metrics_mapper size: %s' % len(self.metrics_mapper))
+             self.log.info('[DEBUG] rate_metrics size: %s' % len(self.rate_metrics))
+             self.log.info('[DEBUG] _label_mapping size: %s' % len(self._label_mapping))
+             self.log.info('[DEBUG] _active_label_mapping size: %s' % len(self._active_label_mapping))
+             self.log.info('[DEBUG] _watched_labels size: %s' % len(self._watched_labels))
 
     def store_labels(self, message):
         # If targeted metric, store labels

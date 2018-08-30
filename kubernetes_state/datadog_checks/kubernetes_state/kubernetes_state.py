@@ -265,12 +265,13 @@ class KubernetesState(OpenMetricsBaseCheck):
         """
         if bool(sample[self.SAMPLE_VALUE]) is False:
             return  # Ignore if gauge is not 1
-        if 'condition' in sample[self.SAMPLE_LABELS]:
-            if sample[self.SAMPLE_LABELS]['condition'] in mapping:
-                self.service_check(sc_name, mapping[sample[self.SAMPLE_LABELS]['condition']], tags=tags)
+        condition = sample[self.SAMPLE_LABELS].get('condition')
+        if condition:
+            if condition in mapping:
+                self.service_check(sc_name, mapping[condition], tags=tags)
             else:
                 self.log.debug("Unable to handle %s - unknown condition %s"
-                               % (sc_name, sample[self.SAMPLE_LABELS]['condition']))
+                               % (sc_name, condition))
 
     def _condition_to_tag_check(self, sample, base_sc_name, mapping, scraper_config, tags=None):
         """
@@ -334,10 +335,11 @@ class KubernetesState(OpenMetricsBaseCheck):
                     'mapping': self.condition_to_status_negative
                 }
             }
-            return labels['status'], switch.get(labels['condition'], {'service_check_name': None, 'mapping': None})
+            return (labels.get('status'), switch.get(labels.get('condition'),
+                    {'service_check_name': None, 'mapping': None}))
 
         elif base_sc_name == 'kubernetes_state.pod.phase':
-            return labels['phase'], {'service_check_name': base_sc_name, 'mapping': self.pod_phase_to_status}
+            return labels.get('phase'), {'service_check_name': base_sc_name, 'mapping': self.pod_phase_to_status}
 
     def _format_tag(self, name, value, scraper_config):
         """
@@ -352,7 +354,7 @@ class KubernetesState(OpenMetricsBaseCheck):
         Tag name is label name if not specified.
         Returns None if name was not found.
         """
-        value = labels[name]
+        value = labels.get(name)
         if value:
             return self._format_tag(tag_name or name, value, scraper_config)
         else:
@@ -404,10 +406,11 @@ class KubernetesState(OpenMetricsBaseCheck):
         for sample in metric.samples:
             tags = []
 
-            if 'reason' in sample[self.SAMPLE_LABELS]:
+            reason = sample[self.SAMPLE_LABELS].get('reason')
+            if reason:
                 # Filtering according to the reason here is paramount to limit cardinality
-                if sample[self.SAMPLE_LABELS]['reason'].lower() in whitelisted_status_reasons:
-                    tags.append(self._format_tag('reason', sample[self.SAMPLE_LABELS]['reason'], scraper_config))
+                if reason.lower() in whitelisted_status_reasons:
+                    tags.append(self._format_tag('reason', reason, scraper_config))
                 else:
                     continue
 

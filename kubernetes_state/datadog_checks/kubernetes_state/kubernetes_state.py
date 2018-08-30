@@ -235,7 +235,10 @@ class KubernetesState(OpenMetricsBaseCheck):
                     'label_to_match': 'persistentvolumeclaim',
                     'labels_to_get': ['storageclass']
                 }
-            }
+            },
+            # Defaults that were set when kubernetes_state was based on PrometheusCheck
+            'send_monotonic_counter': instance.get('send_monotonic_counter', False),
+            'health_service_check': instance.get('health_service_check', False)
         })
 
         instance['prometheus_url'] = endpoint

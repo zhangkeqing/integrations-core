@@ -127,6 +127,8 @@ class VSphereCheck(AgentCheck):
         self.morlist_raw = {}
         # Second layer, processed from the first one
         self.morlist = {}
+
+        self.metrics_cache = {}
         # Metrics metadata, basically perfCounterId -> {name, group, description}
         self.metrics_metadata = {}
         self.latest_event_query = {}
@@ -278,16 +280,17 @@ class VSphereCheck(AgentCheck):
             return available_metrics
 
         i_key = self._instance_key(instance)
-        wanted_metrics = []
+        wanted_metrics = {}
         # Get only the basic metrics
         for metric in available_metrics:
             # No cache yet, skip it for now
             if i_key not in self.metrics_metadata or metric.counterId not in self.metrics_metadata[i_key]:
                 continue
-            if self.metrics_metadata[i_key][metric.counterId]['name'] in BASIC_METRICS:
-                wanted_metrics.append(metric)
+            metric_name = self.metrics_metadata[i_key][metric.counterId]['name']
+            if metric_name in BASIC_METRICS:
+                wanted_metrics[metric_name] = vim.PerformanceManager.MetricId(counterId=metric.counterId, instance="*")
 
-        return wanted_metrics
+        return wanted_metrics.values()
 
     def get_external_host_tags(self):
         """
@@ -475,7 +478,7 @@ class VSphereCheck(AgentCheck):
         self.log.debug("All objects with attributes cached in {} seconds.".format(time.time() - start))
         return obj_list
 
-    @atomic_method
+    # @atomic_method
     def _cache_morlist_raw_atomic(self, instance, tags, regexes=None, include_only_marked=False):
         i_key = self._instance_key(instance)
         server_instance = self._get_server_instance(instance)
@@ -547,14 +550,11 @@ class VSphereCheck(AgentCheck):
         include_only_marked = _is_affirmative(instance.get('include_only_marked', False))
 
         # Discover hosts and virtual machines
-        self.pool.apply_async(
-            self._cache_morlist_raw_atomic,
-            args=(instance, [instance_tag], regexes, include_only_marked)
-        )
+        self._cache_morlist_raw_atomic(instance, [instance_tag], regexes, include_only_marked)
 
         self.cache_config.set_last(CacheConfig.Morlist, i_key, time.time())
 
-    @atomic_method
+    # @atomic_method
     def _cache_morlist_process_atomic(self, instance, query_specs):
         """ Process one item of the self.morlist_raw list by querying the available
         metrics for this MOR and then putting it in self.morlist
@@ -564,6 +564,8 @@ class VSphereCheck(AgentCheck):
         # ## </TEST-INSTRUMENTATION>
 
         i_key = self._instance_key(instance)
+        if i_key not in self.metrics_cache:
+            self.metrics_cache[i_key] = {}
         server_instance = self._get_server_instance(instance)
         perfManager = server_instance.content.perfManager
 
@@ -574,14 +576,11 @@ class VSphereCheck(AgentCheck):
         # See https://code.vmware.com/apis/358/vsphere#/doc/vim.PerformanceManager.QuerySpec.html
         res = perfManager.QueryPerf(query_specs)
         for mor_perfs in res:
-            mor_name = str(mor_perfs.entity)
             available_metrics = [value.id for value in mor_perfs.value]
-            try:
-                self.morlist[i_key][mor_name]['metrics'] = self._compute_needed_metrics(instance, available_metrics)
-            except KeyError:
-                self.log.error("Trying to compute needed metrics from object %s deleted from the cache, skipping. "
-                               "Consider increasing the parameter `clean_morlist_interval` to avoid that", mor_name)
-                continue
+            for vimtype in RESOURCE_TYPE_METRICS:
+                if isinstance(mor_perfs.entity, vimtype):
+                    self.metrics_cache[i_key][vimtype] = self._compute_needed_metrics(instance, available_metrics)
+                    break
 
         # ## <TEST-INSTRUMENTATION>
         self.histogram('datadog.agent.vsphere.morlist_process_atomic.time', t.total(), tags=instance.get('tags', []))
@@ -596,32 +595,28 @@ class VSphereCheck(AgentCheck):
         if i_key not in self.morlist:
             self.morlist[i_key] = {}
 
+        query_specs = []
         for resource_type in RESOURCE_TYPE_METRICS:
-            query_specs = []
             # Batch size can prevent querying large payloads at once if the environment is too large
             # If batch size is set to 0, process everything at once
-            batch_size = self.batch_morlist_size or len(self.morlist_raw[i_key][resource_type])
-            for _ in xrange(batch_size):
-                try:
-                    mor = self.morlist_raw[i_key][resource_type].pop()
-                    mor_name = str(mor["mor"])
-                    mor["interval"] = REAL_TIME_INTERVAL if mor['mor_type'] in REALTIME_RESOURCES else None
-                    if mor_name not in self.morlist[i_key]:
-                        self.morlist[i_key][mor_name] = mor
-                    self.morlist[i_key][mor_name]["last_seen"] = time.time()
+            should_query_available_metrics = True
+            for mor in self.morlist_raw[i_key][resource_type]:
+                mor_name = str(mor["mor"])
+                mor["interval"] = REAL_TIME_INTERVAL if mor['mor_type'] in REALTIME_RESOURCES else None
+                if mor_name not in self.morlist[i_key]:
+                    self.morlist[i_key][mor_name] = mor
+                self.morlist[i_key][mor_name]["last_seen"] = time.time()
 
+                if should_query_available_metrics:
                     query_spec = vim.PerformanceManager.QuerySpec()
                     query_spec.entity = mor["mor"]
                     query_spec.intervalId = mor["interval"]
                     query_spec.maxSample = 1
                     query_specs.append(query_spec)
+                    should_query_available_metrics = False
 
-                except (IndexError, KeyError):
-                    self.log.debug("No more work to process in morlist_raw")
-                    break
-
-            if query_specs:
-                self.pool.apply_async(self._cache_morlist_process_atomic, args=(instance, query_specs))
+        if query_specs:
+            self._cache_morlist_process_atomic(instance, query_specs)
 
     def _vacuum_morlist(self, instance):
         """ Check if self.morlist doesn't have some old MORs that are gone, ie

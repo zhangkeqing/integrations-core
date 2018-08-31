@@ -573,6 +573,7 @@ class VSphereCheck(AgentCheck):
         # query_specs is a list of QuerySpec objects.
         # See https://code.vmware.com/apis/358/vsphere#/doc/vim.PerformanceManager.QuerySpec.html
         res = perfManager.QueryPerf(query_specs)
+        time.sleep(20)
         for mor_perfs in res:
             mor_name = str(mor_perfs.entity)
             available_metrics = [value.id for value in mor_perfs.value]
@@ -693,6 +694,7 @@ class VSphereCheck(AgentCheck):
         perfManager = server_instance.content.perfManager
         custom_tags = instance.get('tags', [])
         results = perfManager.QueryPerf(query_specs)
+        time.sleep(10)
         if results:
             for mor_perfs in results:
                 mor_name = str(mor_perfs.entity)

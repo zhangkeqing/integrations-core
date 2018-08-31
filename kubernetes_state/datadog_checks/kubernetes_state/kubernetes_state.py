@@ -254,7 +254,7 @@ class KubernetesState(OpenMetricsBaseCheck):
 
         if hostname_override:
             clustername = get_clustername()
-            if clustername != "" :
+            if clustername != "":
                 instance['label_to_hostname_suffix'] = "-" + clustername
 
         if 'labels_mapper' in instance and not isinstance(instance['labels_mapper'], dict):

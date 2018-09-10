@@ -55,7 +55,9 @@ class NtpCheck(AgentCheck):
         self.log.debug("Using ntp host: {}".format(req_args['host']))
 
         try:
+            self.log.debug("Trying to create and ntplib client")
             ntp_stats = ntplib.NTPClient().request(**req_args)
+            self.log.debug("ntp_stats.recv_time : %s",ntp_stats.recv_time)
         except ntplib.NTPException:
             self.log.debug("Could not connect to NTP Server {}".format(
                 req_args['host']))
@@ -63,6 +65,7 @@ class NtpCheck(AgentCheck):
             ntp_ts = None
         else:
             ntp_offset = ntp_stats.offset
+            self.log.debug("NTP Offset: {}".format(ntp_offset))
 
             # Use the ntp server's timestamp for the time of the result in
             # case the agent host's clock is messed up.

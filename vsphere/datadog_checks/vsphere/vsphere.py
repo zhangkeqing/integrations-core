@@ -498,16 +498,6 @@ class VSphereCheck(AgentCheck):
         self.log.debug("All objects with attributes cached in {} seconds.".format(time.time() - start))
         return obj_list
 
-    @trace_method
-    def _cache_morlist_raw_async(self, instance, tags, regexes=None, include_only_marked=False):
-        """
-        Fills the queue in a separate thread
-        """
-        i_key = self._instance_key(instance)
-        server_instance = self._get_server_instance(instance)
-        all_objs = self._get_all_objs(server_instance, regexes, include_only_marked, tags)
-        self.mor_objects_queue.fill(i_key, dict(all_objs))
-
     @staticmethod
     def _is_excluded(obj, properties, regexes, include_only_marked):
         """
@@ -570,10 +560,9 @@ class VSphereCheck(AgentCheck):
         include_only_marked = _is_affirmative(instance.get('include_only_marked', False))
 
         # Discover hosts and virtual machines
-        self.pool.apply_async(
-            self._cache_morlist_raw_async,
-            args=(instance, [instance_tag], regexes, include_only_marked)
-        )
+        server_instance = self._get_server_instance(instance)
+        all_objs = self._get_all_objs(server_instance, regexes, include_only_marked, [instance_tag])
+        self.mor_objects_queue.fill(i_key, dict(all_objs))
 
         self.cache_config.set_last(CacheConfig.Morlist, i_key, time.time())
 

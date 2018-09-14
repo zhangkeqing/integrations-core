@@ -483,7 +483,7 @@ class ConsulCheck(AgentCheck):
                     median = latencies[half_n]
                 else:
                     median = (latencies[half_n - 1] + latencies[half_n]) / 2
-                self.gauge('consul.net.node.latency.min', latencies[0], hostname='', tags=main_tags)
+                self.gauge('consul.net.node.latency.min', latencies[0], tags=main_tags)
                 self.gauge('consul.net.node.latency.p25',
                            latencies[ceili(n * 0.25) - 1], tags=main_tags)
                 self.gauge('consul.net.node.latency.median', median, tags=main_tags)

@@ -483,20 +483,20 @@ class ConsulCheck(AgentCheck):
                     median = latencies[half_n]
                 else:
                     median = (latencies[half_n - 1] + latencies[half_n]) / 2
-                self.gauge('consul.net.node.latency.min', latencies[0], hostname=node_name, tags=main_tags)
+                self.gauge('consul.net.node.latency.min', latencies[0], hostname='', tags=main_tags)
                 self.gauge('consul.net.node.latency.p25',
-                           latencies[ceili(n * 0.25) - 1], hostname=node_name, tags=main_tags)
-                self.gauge('consul.net.node.latency.median', median, hostname=node_name, tags=main_tags)
+                           latencies[ceili(n * 0.25) - 1], hostname='', tags=main_tags)
+                self.gauge('consul.net.node.latency.median', median, hostname='', tags=main_tags)
                 self.gauge('consul.net.node.latency.p75',
-                           latencies[ceili(n * 0.75) - 1], hostname=node_name, tags=main_tags)
+                           latencies[ceili(n * 0.75) - 1], hostname='', tags=main_tags)
                 self.gauge('consul.net.node.latency.p90',
-                           latencies[ceili(n * 0.90) - 1], hostname=node_name, tags=main_tags)
+                           latencies[ceili(n * 0.90) - 1], hostname='', tags=main_tags)
                 self.gauge('consul.net.node.latency.p95',
-                           latencies[ceili(n * 0.95) - 1], hostname=node_name, tags=main_tags)
+                           latencies[ceili(n * 0.95) - 1], hostname='', tags=main_tags)
                 self.gauge('consul.net.node.latency.p99',
-                           latencies[ceili(n * 0.99) - 1], hostname=node_name, tags=main_tags)
+                           latencies[ceili(n * 0.99) - 1], hostname='', tags=main_tags)
                 self.gauge('consul.net.node.latency.max',
-                           latencies[-1], hostname=node_name, tags=main_tags)
+                           latencies[-1], hostname='', tags=main_tags)
 
     def _get_all_nodes(self, instance):
         return self.consul_request(instance, 'v1/catalog/nodes')

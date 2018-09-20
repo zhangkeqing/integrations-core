@@ -22,6 +22,7 @@ except ImportError:
     # Agent < 6.0: the Agent pulls tags invoking `OpenStackCheck.get_external_host_tags`
     set_external_tags = None
 
+CHECK_VERSION = 'v0.1.0'
 
 SOURCE_TYPE = 'openstack'
 
@@ -1187,7 +1188,7 @@ class OpenStackCheck(AgentCheck):
         if not self.should_run(instance):
             self.log.info('Skipping run due to exponential backoff in effect')
             return
-
+        self.log.info("Running Custom Openstack Single Node Check, Version: {}".format(CHECK_VERSION))
         projects = {}
         custom_tags = instance.get("tags", [])
         collect_limits_from_all_projects = is_affirmative(instance.get('collect_limits_from_all_projects', True))

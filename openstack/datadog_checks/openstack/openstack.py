@@ -22,7 +22,7 @@ except ImportError:
     # Agent < 6.0: the Agent pulls tags invoking `OpenStackCheck.get_external_host_tags`
     set_external_tags = None
 
-CHECK_VERSION = 'v0.1.0'
+CHECK_VERSION = 'v0.1.1'
 
 SOURCE_TYPE = 'openstack'
 

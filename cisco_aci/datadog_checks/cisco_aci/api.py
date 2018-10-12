@@ -3,6 +3,7 @@
 # Licensed under a 3-clause BSD style license (see LICENSE)
 
 import random
+import datetime
 from requests import Request, Session
 import base64
 from cryptography.hazmat.primitives.asymmetric import padding
@@ -25,6 +26,7 @@ class SessionWrapper:
         self.log = log
         self.apic_cookie = apic_cookie
         self.appcenter = appcenter
+        self.time_spent_in_requests = None
 
         if self.appcenter:
             self.certDn = 'uni/userext/appuser-{}/usercert-{}'.format(username, cert_name)
@@ -67,7 +69,15 @@ class SessionWrapper:
             self.warning("The Cisco ACI Integration requires either a cert or a username and password")
             raise APIAuthException("The Cisco ACI Integration requires either a cert or a username and password")
 
+        start = datetime.datetime.now()
         response = self.session.send(prepped_request, verify=self.verify, timeout=self.timeout)
+        end = datetime.datetime.now()
+
+        if not self.time_spent_in_requests:
+            self.time_spent_in_requests = end - start
+        else:
+            self.time_spent_in_requests += end - start
+
         try:
             response.raise_for_status()
         except Exception as e:
@@ -143,6 +153,20 @@ class Api:
                                                  cert_key_password=self.cert_key_password,
                                                  log=self.log)
                 self.sessions.append(session_wrapper)
+
+    def time_spent_in_requests(self):
+        time_spent = None
+        for session in self.sessions:
+            if not time_spent:
+                time_spent = session.time_spent_in_requests
+            else:
+                time_spent += session.time_spent_in_requests
+
+        return time_spent
+
+    def refresh_time_spent_in_requests(self):
+        for session in self.sessions:
+            session.time_spent_in_requests = None
 
     def password_login(self):
         # this is a path for testing, allowing the object to be patched with fake request responses

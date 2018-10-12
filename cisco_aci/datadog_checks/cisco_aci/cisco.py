@@ -80,6 +80,9 @@ class CiscoACICheck(AgentCheck):
                       appcenter=appcenter, cert_key_password=cert_key_password)
             self._api_cache[instance_hash] = api
 
+        # clear any cached results
+        api.refresh_time_spent_in_requests()
+
         service_check_tags = []
         for url in aci_urls:
             service_check_tags.append("url:{}".format(url))
@@ -146,6 +149,7 @@ class CiscoACICheck(AgentCheck):
         log_line = "finished running Cisco Check"
         if _is_affirmative(instance.get('report_timing', False)):
             log_line += ", took {}".format(end - start)
+            log_line += ", spent {} in network requests".format(api.time_spent_in_requests())
         self.log.info(log_line)
 
     def submit_metrics(self, metrics, tags, instance={}, obj_type="gauge", hostname=None):

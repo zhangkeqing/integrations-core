@@ -10,7 +10,9 @@ import subprocess
 from datadog_checks.dev import docker_run, temp_dir
 from datadog_checks.rabbitmq import RabbitMQ
 
-from .common import HERE, CHECK_NAME, HOST, PORT
+from .common import HERE, CHECK_NAME, HOST, PORT, USERNAME, PASSWORD
+
+COMPOSE_FILE = os.path.join(HERE, 'compose', 'docker-compose.yaml')
 
 
 @pytest.fixture(scope="session")
@@ -27,9 +29,10 @@ def spin_up_rabbitmq(request):
     if not os.environ.get('RABBITMQ_VERSION'):
         env['RABBITMQ_VERSION'] = '3.6.0'
 
-    compose_file = os.path.join(HERE, 'compose', 'docker-compose.yaml')
+    # def down():
+    #     pass
 
-    with docker_run(compose_file,
+    with docker_run(COMPOSE_FILE,
                     log_patterns='Server startup complete',
                     env_vars=env):
         yield
@@ -46,6 +49,9 @@ def setup_rabbitmq():
         with open(rabbitmq_admin_script, 'w+') as f:
             f.write(res.text)
 
+        # if os.environ.get('RABBITMQ_VERSION') != '3.5.0':
+        #     # the rabbitmqctl does not work in the 3.5.0 image for some reason
+        #     setup_perms()
         setup_vhosts(rabbitmq_admin_script)
         setup_more(rabbitmq_admin_script)
         setup_more_with_vhosts(rabbitmq_admin_script)
@@ -136,6 +142,75 @@ def setup_more_with_vhosts(rabbitmq_admin_script):
                    'routing_key={}'.format(name),
                    'payload="hello, world"']
             subprocess.check_call(cmd)
+
+
+def setup_perms():
+    cmd_base = [
+        'docker',
+        # '-f',
+        # COMPOSE_FILE,
+        'exec',
+        'compose_rabbitmq_1',
+        'rabbitmqctl'
+    ]
+
+    add_user = cmd_base + [
+        'add_user',
+        USERNAME,
+        PASSWORD
+    ]
+
+    subprocess.check_call(add_user)
+
+    set_perms = cmd_base + [
+        'set_permissions',
+        '-p',
+        '/',
+        USERNAME,
+        '"^aliveness-test$"',
+        '"^amq\.default$"',
+        '".*"'
+    ]
+
+    subprocess.check_call(set_perms)
+
+    set_tags = cmd_base + [
+        'set_user_tags',
+        USERNAME,
+        'monitoring'
+    ]
+
+    subprocess.check_call(set_tags)
+
+# def setup_perms():
+#     cmd_base= [
+#         'docker-compose',
+#         '-f',
+#         COMPOSE_FILE,
+#         'exec',
+#         'rabbitmq',
+#         'rabbitmqctl',
+#         'bash',
+#         '-c'
+#     ]
+#
+#     add_user = cmd_base + [
+#         '"add_user {} {}"'.format(USERNAME, PASSWORD)
+#     ]
+#
+#     subprocess.check_call(add_user, shell=True)
+#
+#     set_perms = cmd_base + [
+#         '\'set_permissions -p / datadog "^aliveness-test$" "^amq\.default$" ".*"\''
+#     ]
+#
+#     subprocess.check_call(set_perms, shell=True)
+#
+#     set_tags = cmd_base + [
+#         '"set_user_tags datadog monitoring"'
+#     ]
+#
+#     subprocess.check_call(set_tags, shell=True)
 
 
 @pytest.fixture

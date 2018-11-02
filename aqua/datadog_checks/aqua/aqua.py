@@ -29,10 +29,39 @@ class AquaCheck(AgentCheck):
             self.log.error("Failed to get Aqua token, skipping check. Error: %s" % ex)
             return
         self._report_base_metrics(instance, token)
-        self._report_audits(instance, token)
-        self._report_scan_queues(instance, token)
         self._report_connected_enforcers(instance, token)
+        status_metrics = [
+            # (
+            #     metric_name,
+            #     route,
+            #     statuses
+            # )
+            (
+                'aqua.audit.access'
+                '/api/v1/audit/access_totals?alert=-1&limit=100&time=hour&type=all',
+                {
+                    'total': 'all',
+                    'success': 'success',
+                    'blocked': 'blocked',
+                    'detect': 'detect',
+                    'alert': 'alert'
+                }
+            ),
+            (
+                'aqua.scan_queue',
+                '/api/v1/scanqueue/summary',
+                {
+                    'total': 'all',
+                    'failed': 'failed',
+                    'in_progress': 'in_progress',
+                    'finished': 'finished',
+                    'pending': 'pending'
+                }
+            )
+        ]
 
+        for metric_name, route, statuses in status_metrics:
+            self._report_status_metrics(instance, token, metric_name, route, statuses)
 
     def validate_instance(self, instance):
         """
@@ -64,19 +93,24 @@ class AquaCheck(AgentCheck):
         """
         Report metrics about images, vulnerabilities, running containers, and enforcer hosts
         """
-        metrics = self._perform_query(instance, '/api/v1/dashboard', token)
+        try:
+            metrics = self._perform_query(instance, '/api/v1/dashboard', token)
+        except Exception as ex:
+            self.log.error("Failed to get base metrics. Some metrics will be missing. Error: %s" % ex)
+            return
+
         # images
-        # FIXME: haissam registry_counts is weird in these metric names
-        # FIXME: haissam factorize these
-        metric_name = 'aqua.registry_counts.images'
+        metric_name = 'aqua.images'
         image_metrics = metrics['registry_counts']['images']
         for sev, sev_tag in SEVERITIES.iteritems():
             self.gauge(metric_name, image_metrics[sev], tags=instance.get('tags', []) + ['severity:%s' % sev_tag])
+
         # vulnerabilities
-        metric_name = 'aqua.registry_counts.vulnerabilities'
+        metric_name = 'aqua.vulnerabilities'
         vuln_metrics = metrics['registry_counts']['vulnerabilities']
         for sev, sev_tag in SEVERITIES.iteritems():
             self.gauge(metric_name, vuln_metrics[sev], tags=instance.get('tags', []) + ['severity:%s' % sev_tag])
+
         # running containers
         metric_name = 'aqua.running_containers'
         container_metrics = metrics['running_containers']
@@ -84,43 +118,32 @@ class AquaCheck(AgentCheck):
         self.gauge(metric_name, container_metrics['total'], tags=instance.get('tags', []) + ['status:all'])
         self.gauge(metric_name, container_metrics['unregistered'], tags=instance.get('tags', []) + ['status:unregistered'])
         self.gauge(metric_name, container_metrics['total'] - container_metrics['unregistered'], tags=instance.get('tags', []) + ['status:registered'])
+
         # disconnected enforcers
         # FIXME: haissam should we move this to the dedicated enforcer method?
         metric_name = 'aqua.enforcers'
         enforcer_metrics = metrics['hosts']
         self.gauge('aqua.enforcers', enforcer_metrics['disconnected_count'], tags=instance.get('tags', []) + ['status:disconnected'])
 
+    def _report_status_metrics(self, instance, token, metric_name, route, statuses):
+        try:
+            metrics = self._perform_query(instance, route, token)
+        except Exception as ex:
+            self.log.error("Failed to get %s metrics. Error: %s" % (metric_name, ex))
+            return
+        for status, status_tag in status.iteritems():
+            self.gauge(metric_name, metrics[status], tags=instance.get('tags', []) + ['status:%s' % status_tag])
+
     def _report_connected_enforcers(self, instance, token):
         """
         Report metrics about enforcers
         """
         # FIXME: haissam is there more to collect here?
-        metrics = self._perform_query(instance, '/api/v1/hosts', token)
+        try:
+            metrics = self._perform_query(instance, '/api/v1/hosts', token)
+        except Exception as ex:
+            self.log.error("Failed to get enforcer metrics. Error: %s" % ex)
+            return
+
         # FIXME: haissam is it all or connected here?
         self.gauge('aqua.enforcers', metrics['count'], tags=instance.get('tags', []) + ['status:all'])
-
-    def _report_audits(self, instance, token):
-        metrics = self._perform_query(instance, '/api/v1/audit/access_totals?alert=-1&limit=100&time=hour&type=all', token)
-        metric_name = 'aqua.audit.access'
-        status = {
-            'total': 'all',
-            'success': 'success',
-            'blocked': 'blocked',
-            'detect': 'detect',
-            'alert': 'alert'
-        }
-        for status, status_tag in status.iteritems():
-            self.gauge(metric_name, metrics[status], tags=instance.get('tags', []) + ['status:%s' % status_tag])
-
-    def _report_scan_queues(self, instance, token):
-        metrics = self._perform_query(instance, '/api/v1/scanqueue/summary', token)
-        metric_name = 'aqua.scan_queue'
-        status = {
-            'total': 'all',
-            'failed': 'failed',
-            'in_progress': 'in_progress',
-            'finished': 'finished',
-            'pending': 'pending'
-        }
-        for status, status_tag in status.iteritems():
-            self.gauge(metric_name, metrics[status], tags=instance.get('tags', []) + ['status:%s' % status_tag])

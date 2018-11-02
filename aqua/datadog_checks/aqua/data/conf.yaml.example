@@ -1,4 +1,14 @@
-init_config:
-
 instances:
-  - {}
+    # Base URL to your Aqua instance.
+    #
+  - url: http://your-aqua-instance.com
+    #
+    # Username and password the agent will use to query the Aqua API.
+    #
+    # api_user: admin
+    # password: api_user_password
+    #
+    # Supply a list of custom tags to send with all metrics for this instance.
+    #
+    # tags:
+    #   - instance: foo

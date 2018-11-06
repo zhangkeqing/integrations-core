@@ -7,6 +7,10 @@ def get_hostname():
     return b'stubbed.hostname'
 
 
+def set_check_metadata(*args, **kwargs):
+    pass
+
+
 def log(*args, **kwargs):
     pass
 

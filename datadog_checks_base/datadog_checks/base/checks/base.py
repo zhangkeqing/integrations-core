@@ -256,9 +256,8 @@ class AgentCheck(object):
             event['aggregation_key'] = ensure_bytes(event['aggregation_key'])
         aggregator.submit_event(self, self.check_id, event)
 
-    # TODO(olivier): implement service_metadata if it's worth it
-    def service_metadata(self, meta_name, value):
-        pass
+    def set_metadata(self, name, value):
+        datadog_agent.set_check_metadata(self.check_id, ensure_bytes(name), ensure_bytes(value))
 
     def check(self, instance):
         raise NotImplementedError

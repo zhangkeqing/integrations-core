@@ -3,7 +3,13 @@
 # Licensed under Simplified BSD License (see LICENSE)
 import os
 
+<<<<<<< HEAD
 import pytest
+=======
+import psycopg2
+
+from datadog_checks.postgres import PostgreSql
+>>>>>>> Include db tag with postgresql.locks metrics
 
 from datadog_checks.postgres import PostgreSql
 from .common import HOST, PORT, DB_NAME
@@ -124,7 +130,19 @@ def test_connections_metrics(aggregator, check, pg_instance):
 
 @pytest.mark.integration
 @pytest.mark.usefixtures('dd_environment')
-def test_activity_metrics(aggregator, check, pg_instance):
+def test_locks_metrics(aggregator, check, postgres_standalone, pg_instance):
+    with psycopg2.connect(host=HOST, dbname=DB_NAME, user="postgres") as conn:
+        with conn.cursor() as cur:
+            cur.execute('LOCK persons')
+            check.check(pg_instance)
+
+    expected_tags = pg_instance['tags']+['lock_mode:AccessExclusiveLock','table:persons','db:datadog_test']
+    aggregator.assert_metric('postgresql.locks', count=1, tags=expected_tags)
+
+
+@pytest.mark.integration
+@pytest.mark.usefixtures('dd_environment')
+def test_activity_metrics(aggregator, check, postgres_standalone, pg_instance):
     pg_instance['collect_activity_metrics'] = True
     check.check(pg_instance)
 

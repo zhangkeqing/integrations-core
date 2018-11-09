@@ -136,8 +136,15 @@ def test_locks_metrics(aggregator, check, postgres_standalone, pg_instance):
             cur.execute('LOCK persons')
             check.check(pg_instance)
 
+<<<<<<< HEAD
     expected_tags = pg_instance['tags']+['lock_mode:AccessExclusiveLock','table:persons','db:datadog_test']
     aggregator.assert_metric('postgresql.locks', count=1, tags=expected_tags)
+=======
+    print(repr(aggregator._metrics))
+
+    tags = pg_instance['tags'] + ['lock_mode:AccessExclusiveLock', 'table:persons', 'db:datadog_test']
+    aggregator.assert_metric('postgresql.locks', count=1, tags=tags)
+>>>>>>> Fix flake8 complains
 
 
 @pytest.mark.integration

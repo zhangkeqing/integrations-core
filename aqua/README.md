@@ -31,7 +31,7 @@ Aqua does not include any metrics.
 
 ### Service Checks
 
-Aqua does not include any service checks.
+Aqua sends one service check named `aqua.can_connect`
 
 ### Events
 

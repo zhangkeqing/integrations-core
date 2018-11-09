@@ -22,11 +22,17 @@ class AquaCheck(AgentCheck):
     Collect metrics from Aqua.
     """
     def check(self, instance):
+        service_check_name = 'aqua.can_connect'
+        instance_tags = instance.get("tags", [])
+
         self.validate_instance(instance)
+
         try:
             token = self.get_aqua_token(instance)
+            self.service_check(service_check_name, AgentCheck.OK, tags=instance_tags)
         except Exception as ex:
             self.log.error("Failed to get Aqua token, skipping check. Error: %s" % ex)
+            self.service_check(service_check_name, AgentCheck.CRITICAL, tags=instance_tags)
             return
         self._report_base_metrics(instance, token)
         self._report_connected_enforcers(instance, token)
@@ -37,7 +43,7 @@ class AquaCheck(AgentCheck):
             #     statuses
             # )
             (
-                'aqua.audit.access'
+                'aqua.audit.access',
                 '/api/v1/audit/access_totals?alert=-1&limit=100&time=hour&type=all',
                 {
                     'total': 'all',
@@ -131,7 +137,7 @@ class AquaCheck(AgentCheck):
         except Exception as ex:
             self.log.error("Failed to get %s metrics. Error: %s" % (metric_name, ex))
             return
-        for status, status_tag in status.iteritems():
+        for status, status_tag in statuses.iteritems():
             self.gauge(metric_name, metrics[status], tags=instance.get('tags', []) + ['status:%s' % status_tag])
 
     def _report_connected_enforcers(self, instance, token):

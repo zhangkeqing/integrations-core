@@ -8,7 +8,7 @@ from six.moves.urllib.parse import urlparse
 
 
 def ensure_bytes(s):
-    if not isinstance(s, bytes):
+    if s is not None and not isinstance(s, bytes):
         s = s.encode('utf-8')
     return s
 

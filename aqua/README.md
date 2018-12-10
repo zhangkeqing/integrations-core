@@ -2,7 +2,11 @@
 
 ## Overview
 
-This check monitors [Aqua][1].
+This check monitors [Aqua][1].  
+Collect data from Aqua Security, included in the Datadog Agent package, to track performance data and receive alerts concerning image vulnerability as well as irregularities in your runtime environment.
+
+
+The Aqua check will alert the user if total high-severity vulnerability is reached, or if a container is running inside a host not registered by Aqua.  Aqua will also send data alerts regarding blocked events in runtime, and it is possible to trigger a webhook to scale infrastructure if more Aqua scanners are required.
 
 ## Setup
 
@@ -27,7 +31,7 @@ need to install anything else on your server.
 
 ### Metrics
 
-Aqua does not include any metrics.
+See [metadata.csv][5] for a list of metrics provided by this integration.
 
 ### Service Checks
 
@@ -39,10 +43,11 @@ Aqua does not include any events.
 
 ## Troubleshooting
 
-Need help? Contact [Datadog Support][5].
+Need help? Contact [Datadog Support][6].
 
 [1]: https://www.aquasec.com/
 [2]: https://github.com/DataDog/integrations-core/blob/master/aqua/datadog_checks/aqua/data/conf.yaml.example
 [3]: https://docs.datadoghq.com/agent/faq/agent-commands/#start-stop-restart-the-agent
 [4]: https://docs.datadoghq.com/agent/faq/agent-commands/#agent-status-and-information
-[5]: https://docs.datadoghq.com/help/
+[5]: https://github.com/DataDog/integrations-core/blob/master/aqua/metadata.csv
+[6]: https://docs.datadoghq.com/help/

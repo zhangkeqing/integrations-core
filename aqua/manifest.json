@@ -6,7 +6,7 @@
   "metric_prefix": "aqua.",
   "metric_to_check": "",
   "creates_events": false,
-  "short_description": "",
+  "short_description": "Full dev-to-prod security solution for containers and cloud native applications",
   "guid": "63277370-3ab5-4de3-9aaf-8f2cd52a81e2",
   "support": "core",
   "supported_os": [
@@ -16,7 +16,8 @@
   ],
   "public_title": "Datadog-Aqua Integration",
   "categories": [
-    ""
+    "containers",
+    "security"
   ],
   "type": "check",
   "is_public": true

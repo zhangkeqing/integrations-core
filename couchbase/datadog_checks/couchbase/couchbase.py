@@ -10,6 +10,7 @@ from collections import defaultdict
 
 # 3rd party
 import requests
+from six import iteritems, string_types
 
 # project
 from datadog_checks.checks import AgentCheck
@@ -270,17 +271,17 @@ class Couchbase(AgentCheck):
     def _create_metrics(self, data, instance_state, server, tags=None):
         # Get storage metrics
         storage_totals = data['stats']['storageTotals']
-        for key, storage_type in storage_totals.items():
-            for metric_name, val in storage_type.items():
+        for key, storage_type in iteritems(storage_totals):
+            for metric_name, val in iteritems(storage_type):
                 if val is not None:
                     metric_name = 'couchbase.{}.{}'.format(key, self.camel_case_to_joined_lower(metric_name))
                     self.gauge(metric_name, val, tags=tags)
 
         # Get bucket metrics
-        for bucket_name, bucket_stats in data['buckets'].items():
+        for bucket_name, bucket_stats in iteritems(data['buckets']):
             metric_tags = list(tags)
             metric_tags.append('bucket:{}'.format(bucket_name))
-            for metric_name, val in bucket_stats.items():
+            for metric_name, val in iteritems(bucket_stats):
                 if val is not None:
                     norm_metric_name = self.camel_case_to_joined_lower(metric_name)
                     if norm_metric_name in self.BUCKET_STATS:
@@ -288,10 +289,10 @@ class Couchbase(AgentCheck):
                         self.gauge(full_metric_name, val[0], tags=metric_tags, device_name=bucket_name)
 
         # Get node metrics
-        for node_name, node_stats in data['nodes'].items():
+        for node_name, node_stats in iteritems(data['nodes']):
             metric_tags = list(tags)
             metric_tags.append('node:{}'.format(node_name))
-            for metric_name, val in node_stats['interestingStats'].items():
+            for metric_name, val in iteritems(node_stats['interestingStats']):
                 if val is not None:
                     metric_name = 'couchbase.by_node.{}'.format(self.camel_case_to_joined_lower(metric_name))
                     self.gauge(metric_name, val, tags=metric_tags, device_name=node_name)
@@ -300,12 +301,12 @@ class Couchbase(AgentCheck):
             self._process_cluster_health_data(node_name, node_stats, tags)
 
         # Get query metrics
-        for metric_name, val in data['query'].items():
+        for metric_name, val in iteritems(data['query']):
             if val is not None:
                 norm_metric_name = self.camel_case_to_joined_lower(metric_name)
                 if norm_metric_name in self.QUERY_STATS:
                     # for query times, the unit is part of the value, we need to extract it
-                    if isinstance(val, basestring):
+                    if isinstance(val, string_types):
                         val = self.extract_seconds_value(val)
 
                     full_metric_name = 'couchbase.query.{}'.format(self.camel_case_to_joined_lower(norm_metric_name))

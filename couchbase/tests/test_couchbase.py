@@ -4,9 +4,16 @@
 
 # stdlib
 import pytest
+import logging
+
+from six import iteritems
+
+from datadog_checks.dev.utils import ensure_bytes
 
 from datadog_checks.couchbase import Couchbase
 from .common import CONFIG, CONFIG_QUERY, CHECK_TAGS, BUCKET_NAME, PORT
+
+log = logging.getLogger(__file__)
 
 
 @pytest.mark.integration
@@ -75,8 +82,11 @@ def assert_basic_couchbase_metrics(aggregator, couchbase_container_ip):
     assert(bucket_metric_count > 10)
 
     # Assert 'couchbase.by_node.' metrics
-    NODE_HOST = '{}:{}'.format(couchbase_container_ip, PORT)
-    NODE_TAGS = ['device:{}'.format(NODE_HOST), 'node:{}'.format(NODE_HOST)]
+    NODE_HOST = '{}:{}'.format(str(couchbase_container_ip), str(PORT))
+    NODE_TAGS = [
+        'device:{}'.format(str(NODE_HOST)),
+        'node:{}'.format(str(NODE_HOST))
+    ]
     NODE_STATS = [
         'curr_items',
         'curr_items_tot',
@@ -86,6 +96,13 @@ def assert_basic_couchbase_metrics(aggregator, couchbase_container_ip):
         'couch_views_actual_disk_size',
         'vb_replica_curr_items'
     ]
+
+    for m, v in iteritems(aggregator._metrics):
+        if m == 'couchbase.by_node.curr_items' or m == b'couchbase.by_node.curr_items':
+            log.warning(NODE_HOST)
+            log.warning(NODE_TAGS)
+            log.warning("{}: {}".format(m,v))
+
     for mname in NODE_STATS:
         aggregator.assert_metric('couchbase.by_node.{}'.format(mname), tags=CHECK_TAGS + NODE_TAGS, count=1)
 

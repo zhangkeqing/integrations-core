@@ -118,6 +118,11 @@ instances:
   #
   #  collect_server_diagnostic_metrics: true
 
+  ## @param collect_server_count - optional - boolean - default:true
+  ## Collect the total number of VMs running per hypervisor. Enabling this may result in performance decreate.
+  #
+  # collect_server_count: true
+
   ## @param use_shortname - optional - boolean - default:false
   ## In some OpenStack environments, the hostname registered to Nova is the shortname. 
   ## Enabling this enforces the check to split the hostname up to the first period when

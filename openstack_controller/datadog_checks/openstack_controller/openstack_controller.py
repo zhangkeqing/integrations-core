@@ -678,6 +678,7 @@ class OpenStackControllerCheck(AgentCheck):
         collect_hypervisor_load = is_affirmative(instance.get('collect_hypervisor_load', True))
         collect_network_metrics = is_affirmative(instance.get('collect_network_metrics', True))
         collect_server_diagnostic_metrics = is_affirmative(instance.get('collect_server_diagnostic_metrics', True))
+        collect_server_count = is_affirmative(instance.get('collect_server_count', True))
         collect_server_flavor_metrics = is_affirmative(instance.get('collect_server_flavor_metrics', True))
         use_shortname = is_affirmative(instance.get('use_shortname', False))
 
@@ -741,6 +742,20 @@ class OpenStackControllerCheck(AgentCheck):
                 self.get_all_servers(tenant_id_to_name, instance_name)
 
                 servers = self.servers_cache[instance_name]['servers']
+
+                if collect_server_count:
+                    # Submit count of VMs per hypervisor
+                    hypervisor_mapping = {}
+                    for _, server in iteritems(servers):
+                        hyp_name = server.get('hypervisor_hostname')
+                        if hyp_name not in hypervisor_mapping:
+                            hypervisor_mapping[hyp_name] = 1
+                        else:
+                            hypervisor_mapping[hyp_name] += 1
+
+                    for hyp_name, hyp_count in hypervisor_mapping:
+                        self.gauge('openstack.nova.server.count', hyp_count, tags=custom_tags + ["hypervisor_name:{}".format(hyp_name)])
+
                 if collect_server_diagnostic_metrics:
                     self.log.debug("Fetch stats from %s server(s)" % len(servers))
                     for _, server in iteritems(servers):

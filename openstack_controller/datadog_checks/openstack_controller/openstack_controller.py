@@ -512,6 +512,7 @@ class OpenStackControllerCheck(AgentCheck):
         f['disk'] = flavor.get('disk')
         f['vcpus'] = flavor.get('vcpus')
         f['ram'] = flavor.get('ram')
+        f['ephemeral'] = flavor.get('OS-FLV-EXT-DATA:ephemeral')
         return f
 
     def collect_server_flavor_metrics(self, server_details, flavors, tags=[], use_shortname=False):
@@ -543,6 +544,7 @@ class OpenStackControllerCheck(AgentCheck):
         self.gauge("openstack.nova.server.flavor.disk", flavor.get('disk'), tags=tags + host_tags, hostname=server_id)
         self.gauge("openstack.nova.server.flavor.vcpus", flavor.get('vcpus'), tags=tags + host_tags, hostname=server_id)
         self.gauge("openstack.nova.server.flavor.ram", flavor.get('ram'), tags=tags + host_tags, hostname=server_id)
+        self.gauge("openstack.nova.server.flavor.ephemeral_disk", flavor.get('ephemeral'), tags=tags + host_tags, hostname=server_id)
 
     # Cache util
     def _is_expired(self, entry):

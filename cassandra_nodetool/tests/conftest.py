@@ -57,13 +57,15 @@ def dd_environment():
         temp_jmx_file = os.path.join(tmpdir, 'jmxremote.password')
         env['JMX_PASS_FILE'] = temp_jmx_file
         os.chmod(temp_jmx_file, stat.S_IRWXU)
-
-        with docker_run(compose_file, conditions=[WaitFor(wait_on_docker_logs,
-                        args=(['Listening for thrift clients',
-                               "Created default superuser role 'cassandra'",
-                               'Not starting RPC server as requested'])
-                        )]):
-
+        sentences = [
+            'Listening for thrift clients',
+            'Not starting RPC server as requested',
+            "Created default superuser role 'cassandra'"
+        ]
+        with docker_run(
+            compose_file,
+            log_patterns=sentences
+        ):
             cassandra_seed = get_container_ip("{}".format(common.CASSANDRA_CONTAINER_NAME))
             env['CASSANDRA_SEEDS'] = cassandra_seed.decode('utf-8')
 

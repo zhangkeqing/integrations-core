@@ -16,18 +16,6 @@ from datadog_checks.dev.docker import get_container_ip
 log = logging.getLogger(__file__)
 
 
-def wait_on_docker_logs(sentences):
-    args = [
-        'docker',
-        'logs'
-    ]
-    out = subprocess.check_output(args)
-    if any(str.encode(s) in out for s in sentences):
-        return True
-    log.info(out)
-    return False
-
-
 @pytest.fixture(scope="session")
 def dd_environment():
     """

@@ -49,23 +49,42 @@ class ActiveMQXML(AgentCheck):
         tags = custom_tags + ["url:{0}".format(url)]
 
         self.log.debug("Processing ActiveMQ data for %s" % url)
-        data = self._fetch_data(url, QUEUE_URL, username, password, suppress_errors)
+        data = self._fetch_data(url, QUEUE_URL, username, password, suppress_errors, instance)
         if data:
             self._process_data(data, "queue", tags, max_queues, detailed_queues)
 
-        data = self._fetch_data(url, TOPIC_URL, username, password, suppress_errors)
+        data = self._fetch_data(url, TOPIC_URL, username, password, suppress_errors, instance)
         if data:
-            self._process_data(data, "topic", tags, max_topics, detailed_topics)
+            self._process_data(data, "topic", tags, max_topics, detailed_topics, instance)
 
-        data = self._fetch_data(url, SUBSCRIBER_URL, username, password, suppress_errors)
+        data = self._fetch_data(url, SUBSCRIBER_URL, username, password, suppress_errors, instance)
         if data:
             self._process_subscriber_data(data, tags, max_subscribers, detailed_subscribers)
 
-    def _fetch_data(self, base_url, xml_url, username, password, suppress_errors):
+    def _get_proxy_settings(self, instance, url):
+        # instance > init_config > agent
+        use_instance_proxy = _is_affirmative(instance.get('use_proxy', False))
+        use_init_proxy = _is_affirmative(self.init_config.get('use_proxy', False))
+        proxies = None
+        if use_instance_proxy:
+            proxy = instance.get('proxy_settings')
+            print(proxy)
+        elif use_init_proxy:
+            proxy = self.init_config.get('proxy_settings')
+
+        return proxies
+
+    def _fetch_data(self, base_url, xml_url, username, password, suppress_errors, instance):
         auth = None
         if username and password:
             auth = (username, password)
         url = "%s%s" % (base_url, xml_url)
+
+        # Determine proxy settings instance > init_config > agent
+        proxies = self._get_proxy_settings(instance, url)
+        if proxies is None:
+            proxies = self.get_instance_proxy(instance, url)
+
         self.log.debug("ActiveMQ Fetching queue data from: %s" % url)
         try:
             r = requests.get(url, auth=auth)

@@ -1,5 +1,10 @@
 init_config:
+  ## @param use_proxy - boolean - optional
+  ## If you want to designate proxy settings specifically for every instance.
+  #  use_proxy: false
+  #  proxy: https://<SSL_PROXY_SERVER_FOR_HTTPS>:<PORT>
 
+  
 instances:
 
   ## @param url - string - required
@@ -44,4 +49,9 @@ instances:
   #  detailed_subscribers:
   #   - <SUBSCRIBER_1>
   #   - <SUBSCRIBER_2>
+
+  ## @param use_proxy - boolean - optional
+  ## If you want to designate proxy settings specifically for the instance.
+  #  use_proxy: false
+  #  proxy: https://<SSL_PROXY_SERVER_FOR_HTTPS>:<PORT>
 

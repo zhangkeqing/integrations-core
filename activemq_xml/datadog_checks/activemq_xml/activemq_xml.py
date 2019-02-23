@@ -35,8 +35,6 @@ class ActiveMQXML(AgentCheck):
 
     def check(self, instance):
         url = instance.get("url")
-        username = instance.get("username")
-        password = instance.get("password")
         custom_tags = instance.get('tags', [])
         max_queues = int(instance.get("max_queues", MAX_ELEMENTS))
         max_topics = int(instance.get("max_topics", MAX_ELEMENTS))
@@ -44,37 +42,49 @@ class ActiveMQXML(AgentCheck):
         detailed_queues = instance.get("detailed_queues", [])
         detailed_topics = instance.get("detailed_topics", [])
         detailed_subscribers = instance.get("detailed_subscribers", [])
-        suppress_errors = _is_affirmative(instance.get("suppress_errors", False))
 
         tags = custom_tags + ["url:{0}".format(url)]
 
         self.log.debug("Processing ActiveMQ data for %s" % url)
-        data = self._fetch_data(url, QUEUE_URL, username, password, suppress_errors, instance)
+        data = self._fetch_data(url, QUEUE_URL, instance)
         if data:
             self._process_data(data, "queue", tags, max_queues, detailed_queues)
 
-        data = self._fetch_data(url, TOPIC_URL, username, password, suppress_errors, instance)
+        data = self._fetch_data(url, TOPIC_URL, instance)
         if data:
-            self._process_data(data, "topic", tags, max_topics, detailed_topics, instance)
+            self._process_data(data, "topic", tags, max_topics, detailed_topics)
 
-        data = self._fetch_data(url, SUBSCRIBER_URL, username, password, suppress_errors, instance)
+        data = self._fetch_data(url, SUBSCRIBER_URL, instance)
         if data:
             self._process_subscriber_data(data, tags, max_subscribers, detailed_subscribers)
 
     def _get_proxy_settings(self, instance, url):
         # instance > init_config > agent
-        use_instance_proxy = _is_affirmative(instance.get('use_proxy', False))
-        use_init_proxy = _is_affirmative(self.init_config.get('use_proxy', False))
+        use_instance_proxy = _is_affirmative(instance.get('use_instance_proxy', False))
+        instance_proxy = instance.get('proxy', None)
+        use_init_proxy = _is_affirmative(self.init_config.get('use_init_proxy', False))
+        init_proxy = self.init_config.get('proxy', None)
+        agent_proxy = self.get_instance_proxy(instance, url)
         proxies = None
+        # self.proxies
         if use_instance_proxy:
-            proxy = instance.get('proxy_settings')
-            print(proxy)
+            # use instance proxy or agent_proxy
+            proxies = instance_proxy if instance_proxy else init_proxy
+            proxies = self.proxies if proxies is None else None
         elif use_init_proxy:
-            proxy = self.init_config.get('proxy_settings')
+            # use init proxy or agent_proxy
+            proxies = init_proxy if init_proxy else agent_proxy  # or self.proxies
+        else:
+            # use agent
+            proxies = self.proxies
 
         return proxies
 
-    def _fetch_data(self, base_url, xml_url, username, password, suppress_errors, instance):
+    def _fetch_data(self, base_url, xml_url, instance):
+        username = instance.get("username")
+        password = instance.get("password")
+        suppress_errors = _is_affirmative(instance.get("suppress_errors", False))
+
         auth = None
         if username and password:
             auth = (username, password)
@@ -82,12 +92,10 @@ class ActiveMQXML(AgentCheck):
 
         # Determine proxy settings instance > init_config > agent
         proxies = self._get_proxy_settings(instance, url)
-        if proxies is None:
-            proxies = self.get_instance_proxy(instance, url)
 
         self.log.debug("ActiveMQ Fetching queue data from: %s" % url)
         try:
-            r = requests.get(url, auth=auth)
+            r = requests.get(url, auth=auth, proxies=proxies)
             r.raise_for_status()
         except requests.exceptions.ConnectionError:
             if suppress_errors:

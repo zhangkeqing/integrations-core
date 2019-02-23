@@ -15,7 +15,9 @@ URL = "http://{}:8161".format(get_docker_hostname())
 CONFIG = {
     'url': URL,
     'username': "admin",
-    'password': "admin"
+    'password': "admin",
+    'use_proxy': True,
+    'proxy': 'https:proxy.com:4000'
 }
 
 GENERAL_METRICS = [

@@ -1,7 +1,7 @@
 init_config:
   ## @param use_proxy - boolean - optional
   ## If you want to designate proxy settings specifically for every instance.
-  #  use_proxy: false
+  #  use_init_proxy: false
   #  proxy: https://<SSL_PROXY_SERVER_FOR_HTTPS>:<PORT>
 
   
@@ -52,6 +52,6 @@ instances:
 
   ## @param use_proxy - boolean - optional
   ## If you want to designate proxy settings specifically for the instance.
-  #  use_proxy: false
+  #  use_instance_proxy: false
   #  proxy: https://<SSL_PROXY_SERVER_FOR_HTTPS>:<PORT>
 

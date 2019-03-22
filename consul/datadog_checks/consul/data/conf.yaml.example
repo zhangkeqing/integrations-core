@@ -2,76 +2,120 @@
 init_config:
 
 instances:
-    # Where your Consul HTTP Server Lives
-    # Point the URL at the leader to get metrics about your Consul Cluster.
-    # Remind to use https instead of http if your Consul setup is configured to do so.
+    ## @param url - string - required
+    ##  Where your Consul HTTP Server Lives
+    ##  Point the URL at the leader to get metrics about your Consul Cluster.
+    ##  Remind to use https instead of http if your Consul setup is configured to do so.
+    #
     - url: http://localhost:8500
 
-      # If Consul setup uses SSL, you might need to set the following options as well.
+    ## If Consul setup uses SSL, you might need to set the following options as well.
 
-      # You can specify a local cert to use as client side certificate
-      # as a single file (containing the private key and the certificate concatenated)
-      # client_cert_file: '/path/to/client.concatenated.pem'
+    ## @param client_cert_file - string - optional
+    ## You can specify a local cert to use as client side certificate
+    ## as a single file (containing the private key and the certificate concatenated)
+    #
+    #  client_cert_file: '/path/to/client.concatenated.pem'
 
-      # Or as two separate files (for certificate and key):
-      # client_cert_file: '/path/to/client.cert.pem'
-      # private_key_file: '/path/to/private.key.pem'
+    ## Or as two separate files (for certificate and key):
+    ## @param client_cert_file - string - optional
+    #
+    #  client_cert_file: '/path/to/client.cert.pem'
 
-      # Whether to verifiy SSL certificates for HTTPS requests.
-      # Possible values: True, False or '/path/to/your/trusted_ca_bundle_file'
-      # ca_bundle_file: '/path/to/trusted_ca_bundle_file'
+    ## @param private_key_file - string - optional
+    #
+    #  private_key_file: '/path/to/private.key.pem'
 
-      # ACL token to use for authentication
-      # acl_token: 'token'
+    ## @param ca_bundle_file - string or boolean - optional
+    ## Whether to verifiy SSL certificates for HTTPS requests.
+    #
+    #  ca_bundle_file: '/path/to/trusted_ca_bundle_file'
 
-      # Whether or not to perform the full check even when not the leader. Useful
-      # if you don't want to install the Agent on every node in a data center.
-      # single_node_install: false
+    ## @param acl_token - string - optional
+    ## ACL token to use for authentication
+    #
+    #  acl_token: 'token'
 
-      # Whether to perform checks against the Consul service Catalog
-      catalog_checks: true
+    ## @param single_node_install - boolean - optional - default:false
+    ## Whether or not to perform the full check even when not the leader. Useful
+    ## if you don't want to install the Agent on every node in a data center.
+    #
+    #  single_node_install: false
 
-      # Whether to enable self leader checks. Each instance with this enabled will
-      # watch for itself to become the leader and will emit an event when that
-      # happens. It is safe/expected to enable this on all nodes in a consul
-      # cluster since only the new leader will emit the (single) event. This
-      # flag takes precedence over new_leader_checks.
-      self_leader_check: true
+    ## @param catalog_checks - boolean - optional - default:true
+    ## Whether to perform checks against the Consul service Catalog
+    #
+    #  catalog_checks: true
 
-      # Whether to enable new leader checks from this instance
-      # Note: if this is set on multiple instances/agents in the same cluster
-      # you will receive one event per leader change per instance. See
-      # self_leader_check for a more robust option.
+    ## @param self_leader_check - boolean - optional - default:true
+    ## Whether to enable self leader checks. Each instance with this enabled will
+    ## watch for itself to become the leader and will emit an event when that
+    ## happens. It is safe/expected to enable this on all nodes in a consul
+    ## cluster since only the new leader will emit the (single) event. This
+    ## flag takes precedence over new_leader_checks.
+    #
+    #  self_leader_check: true
+
+    ## @param new_leader_checks - boolean - optional - default:true
+    ## Whether to enable new leader checks from this instance
+    ## Note: if this is set on multiple instances/agents in the same cluster
+    ## you will receive one event per leader change per instance. See
+    ## self_leader_check for a more robust option.
+    #
       new_leader_checks: true
 
-      # Whether to enable network latency metrics collection. When enabled
-      # consul network coordinates will be retrieved and latency calculated for
-      # each node and between data centers.
-      # See https://www.consul.io/docs/internals/coordinates.html
+    ## @param network_latency_checks - boolean - optional - default:true
+    ## Whether to enable network latency metrics collection. When enabled
+    ## consul network coordinates will be retrieved and latency calculated for
+    ## each node and between data centers.
+    ## See https://www.consul.io/docs/internals/coordinates.html
+    #
       network_latency_checks: true
 
-      # Services to restrict catalog querying to
-      # The default settings query up to 50 services. So if you have more than
-      # this many in your Consul service catalog, you will want to fill in the
-      # whitelist
-      # service_whitelist:
-      #   - zookeeper
-      #   - gunicorn
-      #   - redis
+    ## @param service_whitelist - list of string - optional
+    ## Services to restrict catalog querying to
+    ## The default settings query up to 50 services. So if you have more than
+    ## this many in your Consul service catalog, you will want to fill in the
+    ## whitelist
+    #
+    #  service_whitelist:
+    #    - zookeeper
+    #    - gunicorn
+    #    - redis
 
-      # If you'd rather not maintain a whitelist, you can increase the maximum
-      # number of queried services
-      # max_services: 50
+    ## @param max_services - integer - optional
+    ## If you'd rather not maintain a whitelist, you can increase the maximum
+    ## number of queried services
+    #
+    #  max_services: 50
 
-      # Additional tags to apply to the metrics, events and service checks
-      # You should always specify tags when multiple instances of the check run
-      # on the same agent.
-      # tags:
-      #   - 'consul_server:server1'
+    ## @param tags - list of string - optional
+    ## Additional tags to apply to the metrics, events and service checks
+    ## You should always specify tags when multiple instances of the check run
+    ## on the same agent.
+    #
+    #  tags:
+    #    - 'consul_server:server1'
+    
+    ## @param skip_proxy - boolean - optional - default: false
+    ## The (optional) skip_proxy parameter bypasses any proxy
+    ## settings enabled.
+    #
+    #  skip_proxy: false
+
+    ## @param proxy - list of string - optional
+    ## Set HTTP or HTTPS proxy for all instances.
+    ## Use the no_proxy list to specify hosts that must bypass proxy
+    #  proxy:
+    #    https: https://<SSL_PROXY_SERVER_FOR_HTTPS>:<PORT>
+    #    http: https://<SSL_PROXY_SERVER_FOR_HTTP>:<PORT>
+    #    no_proxy:
+    #      - host1
+    #      - host2
 
 ## Log Section (Available for Agent >=6.0)
 
-#logs:
+## logs:
 
     # - type : (mandatory) type of log input source (tcp / udp / file)
     #   port / path : (mandatory) Set port if type is tcp or udp. Set path if type is file

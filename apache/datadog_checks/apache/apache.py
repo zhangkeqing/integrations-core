@@ -1,7 +1,6 @@
 # (C) Datadog, Inc. 2010-2017
 # All rights reserved
 # Licensed under Simplified BSD License (see LICENSE)
-import requests
 from six.moves.urllib.parse import urlparse
 
 from datadog_checks.checks import AgentCheck
@@ -71,7 +70,7 @@ class Apache(AgentCheck):
             self.log.debug(
                 'apache check initiating request, connect timeout %d receive %d' % (connect_timeout, receive_timeout)
             )
-            r = requests.get(
+            r = self.http.get(
                 url,
                 auth=auth,
                 headers=headers(self.agentConfig),

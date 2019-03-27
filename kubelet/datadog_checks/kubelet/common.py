@@ -2,7 +2,7 @@
 # All rights reserved
 # Licensed under Simplified BSD License (see LICENSE)
 
-from tagger import get_tags
+import tagger as agent_tagger
 
 try:
     from containers import is_excluded
@@ -19,13 +19,30 @@ SOURCE_TYPE = 'kubelet'
 
 CADVISOR_DEFAULT_PORT = 0
 
+if hasattr(agent_tagger, "LOW"):
+    tagger = agent_tagger
+else:
+    class TransitionalTagger(object):
+        """
+        This class emulates the new 6.11+ API
+        by calling the old tagger API
+        """
+        def __init__(agent_tagger):
+            self.LOW = False
+            self.ORCHESTRATOR = True
+            self.HIGH = True
+            self.get_tags = agent_tagger.get_tags
+            self.tags = agent_tagger.get_tags
+
+    tagger = TransitionalTagger(agent_tagger)
+
 
 def tags_for_pod(pod_id, cardinality):
     """
     Queries the tagger for a given pod uid
     :return: string array, empty if pod not found
     """
-    return get_tags('kubernetes_pod://%s' % pod_id, cardinality)
+    return tagger.get_tags('kubernetes_pod://%s' % pod_id, cardinality)
 
 
 def tags_for_docker(cid, cardinality):
@@ -33,7 +50,7 @@ def tags_for_docker(cid, cardinality):
     Queries the tagger for a given container id
     :return: string array, empty if container not found
     """
-    return get_tags('docker://%s' % cid, cardinality)
+    return tagger.get_tags('docker://%s' % cid, cardinality)
 
 
 def get_pod_by_uid(uid, podlist):

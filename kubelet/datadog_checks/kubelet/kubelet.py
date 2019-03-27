@@ -19,9 +19,8 @@ from datadog_checks.errors import CheckException
 from kubeutil import get_connection_info
 from six import iteritems
 from six.moves.urllib.parse import urljoin
-from tagger import get_tags
 
-from .common import CADVISOR_DEFAULT_PORT, PodListUtils, KubeletCredentials
+from .common import CADVISOR_DEFAULT_PORT, PodListUtils, KubeletCredentials, tagger
 from .cadvisor import CadvisorScraper
 from .prometheus import CadvisorPrometheusScraperMixin
 
@@ -367,7 +366,7 @@ class KubeletCheck(CadvisorPrometheusScraperMixin, OpenMetricsBaseCheck, Cadviso
                 if "running" not in container.get('state', {}):
                     continue
                 has_container_running = True
-                tags = get_tags(container_id, False) or None
+                tags = tagger.tag(container_id, tagger.LOW) or None
                 if not tags:
                     continue
                 tags += instance_tags
@@ -380,7 +379,7 @@ class KubeletCheck(CadvisorPrometheusScraperMixin, OpenMetricsBaseCheck, Cadviso
             if not pod_id:
                 self.log.debug('skipping pod with no uid')
                 continue
-            tags = get_tags('kubernetes_pod://%s' % pod_id, False) or None
+            tags = tagger.tag('kubernetes_pod://%s' % pod_id, tagger.LOW) or None
             if not tags:
                 continue
             tags += instance_tags
@@ -417,7 +416,7 @@ class KubeletCheck(CadvisorPrometheusScraperMixin, OpenMetricsBaseCheck, Cadviso
                 if self.pod_list_utils.is_excluded(cid, pod_uid):
                     continue
 
-                tags = get_tags('%s' % cid, True) + instance_tags
+                tags = tagger.tag('%s' % cid, tagger.HIGH) + instance_tags
 
                 try:
                     for resource, value_str in iteritems(ctr.get('resources', {}).get('requests', {})):
@@ -454,10 +453,10 @@ class KubeletCheck(CadvisorPrometheusScraperMixin, OpenMetricsBaseCheck, Cadviso
                 if self.pod_list_utils.is_excluded(cid, pod_uid):
                     continue
 
-                tags = get_tags('%s' % cid, True) + instance_tags
+                tags = tagger.tag('%s' % cid, tagger.ORCHESTRATOR) + instance_tags
 
                 restart_count = ctr_status.get('restartCount', 0)
-                self.gauge(self.NAMESPACE + '.containers.restarts', restart_count, tags)
+                self.monotonic_count(self.NAMESPACE + '.containers.restarts', restart_count, tags)
 
                 for (metric_name, field_name) in [('state', 'state'), ('last_state', 'lastState')]:
                     c_state = ctr_status.get(field_name, {})

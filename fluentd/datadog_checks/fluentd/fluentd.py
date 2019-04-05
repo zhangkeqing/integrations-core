@@ -49,7 +49,7 @@ class Fluentd(AgentCheck):
                                   % monitor_agent_port] + custom_tags
 
             self.HTTP_CONFIG_REMAPPER = {
-                'headers': headers(self.agentConfig),
+                'headers': headers(self.agentConfig)
             }
             r = self.http.get(url)
             r.raise_for_status()

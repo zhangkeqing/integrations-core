@@ -41,7 +41,8 @@ instances:
   #
   #  label_whitelist:
   #    - <LABEL>
-    ## @param skip_proxy - boolean - optional - default: false
+  
+  ## @param skip_proxy - boolean - optional - default: false
   ## Set `skip_proxy` parameter to `true` bypass any proxy settings
   ## settings enabled.
   #
@@ -57,3 +58,4 @@ instances:
   #    no_proxy:
   #      - <HOSTNAME_1>
   #      - <HOSTNAME_2>
+  

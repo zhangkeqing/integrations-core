@@ -60,4 +60,3 @@ instances:
   #    no_proxy:
   #      - <HOSTNAME_1>
   #      - <HOSTNAME_2>
-

@@ -44,7 +44,7 @@ instances:
   #    - <KEY_1>:<VALUE_1>
   #    - <KEY_2>:<VALUE_2>
 
-    ## @param skip_proxy - boolean - optional - default: false
+  ## @param skip_proxy - boolean - optional - default: false
   ## Set `skip_proxy` parameter to `true` bypass any proxy settings
   ## settings enabled.
   #

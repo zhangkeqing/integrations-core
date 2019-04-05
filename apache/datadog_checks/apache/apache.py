@@ -60,6 +60,13 @@ class Apache(AgentCheck):
         if 'apache_user' in instance and 'apache_password' in instance:
             auth = (instance['apache_user'], instance['apache_password'])
 
+        self.HTTP_CONFIG_REMAPPER = {
+            'auth': auth,
+            'headers': headers(self.agentConfig),
+            'verify': not disable_ssl_validation,
+            'timeout': (connect_timeout, receive_timeout),
+        }
+
         # Submit a service check for status page availability.
         parsed_url = urlparse(url)
         apache_host = parsed_url.hostname
@@ -70,13 +77,7 @@ class Apache(AgentCheck):
             self.log.debug(
                 'apache check initiating request, connect timeout %d receive %d' % (connect_timeout, receive_timeout)
             )
-            r = self.http.get(
-                url,
-                auth=auth,
-                headers=headers(self.agentConfig),
-                verify=not disable_ssl_validation,
-                timeout=(connect_timeout, receive_timeout),
-            )
+            r = self.http.get(url)
             r.raise_for_status()
 
         except Exception as e:

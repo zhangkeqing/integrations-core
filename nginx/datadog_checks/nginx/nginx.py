@@ -69,26 +69,8 @@ class Nginx(AgentCheck):
 
         url, ssl_validation, auth, use_plus_api, plus_api_version = self._get_instance_params(instance)
 
-        if not use_plus_api:
-            response, content_type = self._get_data(instance, url, ssl_validation, auth)
-            self.log.debug(u"Nginx status `response`: {}".format(response))
-            self.log.debug(u"Nginx status `content_type`: {}".format(content_type))
-
-            if content_type.startswith('application/json'):
-                metrics = self.parse_json(response, tags)
-            else:
-                metrics = self.parse_text(response, tags)
-        else:
-            metrics = []
-            self._perform_service_check(instance, '{}/{}'.format(url, plus_api_version), ssl_validation, auth)
-
-            # These are all the endpoints we have to call to get the same data as we did with the old API
-            # since we can't get everything in one place anymore.
-            for endpoint, nest in chain(iteritems(PLUS_API_ENDPOINTS), iteritems(PLUS_API_STREAM_ENDPOINTS)):
-                response = self._get_plus_api_data(instance, url, ssl_validation, auth,
-                                                   plus_api_version, endpoint, nest)
-                self.log.debug(u"Nginx Plus API version {} `response`: {}".format(plus_api_version, response))
-                metrics.extend(self.parse_json(response, tags))
+        metrics = self._get_default_metrics(instance, url, ssl_validation, auth, tags) if use_plus_api \
+            else self._get_plus_metrics(instance, url, ssl_validation, auth, tags, plus_api_version)
 
         funcs = {
             'gauge': self.gauge,
@@ -127,6 +109,29 @@ class Nginx(AgentCheck):
                 func(name, value, tags)
             except Exception as e:
                 self.log.error(u'Could not submit metric: %s: %s' % (repr(row), str(e)))
+
+    def _get_default_metrics(self, instance, url, ssl_validation, auth, tags):
+        response, content_type = self._get_data(instance, url, ssl_validation, auth)
+        self.log.debug(u"Nginx status `response`: {}".format(response))
+        self.log.debug(u"Nginx status `content_type`: {}".format(content_type))
+
+        if content_type.startswith('application/json'):
+            return self.parse_json(response, tags)
+        else:
+            return self.parse_text(response, tags)
+
+    def _get_plus_metrics(self, instance, url, ssl_validation, auth, tags, plus_api_version):
+        metrics = []
+        self._perform_service_check(instance, '{}/{}'.format(url, plus_api_version), ssl_validation, auth)
+
+        # These are all the endpoints we have to call to get the same data as we did with the old API
+        # since we can't get everything in one place anymore.
+        for endpoint, nest in chain(iteritems(PLUS_API_ENDPOINTS), iteritems(PLUS_API_STREAM_ENDPOINTS)):
+            response = self._get_plus_api_data(instance, url, ssl_validation, auth,
+                                               plus_api_version, endpoint, nest)
+            self.log.debug(u"Nginx Plus API version {} `response`: {}".format(plus_api_version, response))
+            metrics.extend(self.parse_json(response, tags))
+        return metrics
 
     @classmethod
     def _get_instance_params(cls, instance):

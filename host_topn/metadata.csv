@@ -1,0 +1,7 @@
+metric_name,metric_type,interval,unit_name,per_unit_name,description,orientation,integration,short_name
+collector.state,gauge,,,,"collector state",0,host_topn,collector_state
+host.boot.state,gauge,,,,"host boot state",0,host_topn,host_boot_state
+topn.state,gauge,,,,"host_topn agent state",0,host_topn,topn_state
+cpu.topN,gauge,,,,"topn cpu usage",0,host_topn,cpu_topn
+mem.topN,gauge,,,,"topn memory usage",0,host_topn,mem_topn
+

@@ -1,0 +1,23 @@
+{
+  "categories": [
+    "process"
+  ],
+  "creates_events": false,
+  "display_name": "HostTopn",
+  "guid": "eb133a1f-697c-4143-bad3-10e72541fa9d",
+  "is_public": true,
+  "maintainer": "help@datadoghq.com",
+  "manifest_version": "1.0.0",
+  "metric_prefix": "topn.",
+  "metric_to_check": "topn.state",
+  "name": "host_topn",
+  "public_title": "Datadog-HostTopn Integration",
+  "short_description": "Monitor process",
+  "support": "core",
+  "supported_os": [
+    "linux",
+    "mac_os",
+    "windows"
+  ],
+  "type": "check"
+}
